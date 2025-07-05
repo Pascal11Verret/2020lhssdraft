@@ -22,6 +22,7 @@
         let db;
         let auth;
         let userId;
+        let displayedUserId = null; // This will hold the ID to display
 
         // Variables globales
         let players = [];
@@ -85,6 +86,28 @@
             // Add more default players if needed
         ];
 
+        // Team name aliases for normalization (e.g., "Winnipeg" -> "Jets")
+        const teamAliases = {
+            "winnipeg": "Jets",
+            "jets": "Jets",
+            "montreal": "Canadiens",
+            "canadiens": "Canadiens",
+            "nashville": "Predators",
+            "predators": "Predators",
+            // Add more aliases as needed
+        };
+
+        /**
+         * Normalizes a team name to a consistent format using predefined aliases.
+         * @param {string} teamName - The team name to normalize.
+         * @returns {string} The normalized team name, or the original if no alias is found.
+         */
+        function normalizeTeamName(teamName) {
+            if (!teamName) return "";
+            const lowerCaseName = teamName.toLowerCase();
+            return teamAliases[lowerCaseName] || teamName;
+        }
+
         // Initialize Firebase and set up auth listener
         async function initFirebaseAndAuth() {
             try {
@@ -113,9 +136,11 @@
                 onAuthStateChanged(auth, async (user) => {
                     if (user) {
                         userId = user.uid;
+                        displayedUserId = user.uid; // Set displayed ID from Firebase
                         console.log("Firebase User ID:", userId);
                         updateConnectionStatus('connected', 'Connecté à Firebase');
                         isConnected = true;
+                        await initializeFirestoreDataIfEmpty(); // Call this here to ensure data exists
                         setupRealtimeListeners();
                         // Attempt to log in as admin if password was correct
                         if (localStorage.getItem('isAdminLoggedIn') === 'true') {
@@ -127,6 +152,7 @@
                         }
                     } else {
                         userId = null;
+                        displayedUserId = null; // Clear displayed ID if no Firebase user
                         console.log("No Firebase user logged in.");
                         updateConnectionStatus('disconnected', 'Déconnecté');
                         isConnected = false;
@@ -190,12 +216,64 @@
             }
         };
 
+        // Function to initialize Firestore data if collections are empty
+        async function initializeFirestoreDataIfEmpty() {
+            if (useLocalStorage) return; // Don't initialize Firestore if in local mode
+
+            try {
+                const gameStateSnap = await getDoc(GAME_STATE_DOC_REF);
+
+                if (!gameStateSnap.exists()) {
+                    console.log("Firestore data not found. Initializing with default data...");
+                    const batch = writeBatch(db);
+
+                    // Set initial game state
+                    batch.set(GAME_STATE_DOC_REF, { currentRound: 1, currentPick: 1 });
+
+                    // Set initial draft results (empty)
+                    batch.set(DRAFT_RESULTS_DOC_REF, { results: [] });
+
+                    // Set initial draft order (empty, user will import)
+                    batch.set(DRAFT_ORDER_DOC_REF, { order: [] });
+
+                    // Set initial timer state
+                    batch.set(TIMER_STATE_DOC_REF, { duration: 300, remaining: 300, active: false });
+
+                    // Add default players to the players collection
+                    for (const player of defaultPlayers) {
+                        batch.set(doc(PLAYERS_COLLECTION_REF, player.id.toString()), player);
+                    }
+
+                    await batch.commit();
+                    console.log("Default data successfully initialized in Firestore.");
+                    // Forcing a re-render by updating local state after batch commit
+                    currentRound = 1;
+                    currentPick = 1;
+                    draftResults = [];
+                    draftOrder = [];
+                    players = defaultPlayers.map(p => ({ ...p, drafted: false })); // Ensure local players reflect initial state
+                    timerDuration = 300;
+                    timerRemaining = 300;
+                    timerActive = false;
+                    updateInterface();
+                    updateTimerDisplay(); // Ensure timer display is correct after reset
+                } else {
+                    console.log("Firestore data already exists. Skipping initialization.");
+                }
+            } catch (error) {
+                console.error("Error initializing Firestore data:", error);
+                // Potentially revert to local mode or show a persistent error message
+                updateConnectionStatus('offline', 'Erreur d\'initialisation des données');
+            }
+        }
+
         // --- UI State Management ---
         function updateStatusIndicator() {
             const indicator = document.getElementById('statusIndicator');
             const statusText = document.getElementById('statusText');
             const connectionStatusLogin = document.getElementById('connectionStatus');
             const connectionStatusMain = document.getElementById('connectionStatusMain');
+            const userIdDisplay = document.getElementById('userIdDisplay'); // Get the new element
 
             indicator.className = 'status-indicator';
             connectionStatusLogin.className = 'connection-status';
@@ -229,6 +307,15 @@
                 connectionStatusLogin.innerHTML = '<span>🔄</span><span>Connexion à Firebase...</span>';
                 connectionStatusMain.classList.add('connecting');
                 connectionStatusMain.innerHTML = '<span>🔄</span><span>Synchronisation...</span>';
+            }
+
+            // Update user ID display
+            if (userIdDisplay) {
+                if (displayedUserId) {
+                    userIdDisplay.textContent = `ID Utilisateur: ${displayedUserId}`;
+                } else {
+                    userIdDisplay.textContent = `ID Utilisateur: Non connecté`;
+                }
             }
         }
 
@@ -300,7 +387,7 @@
             const teamNameInput = document.getElementById('teamNameInput');
             const teamName = teamNameInput.value.trim();
             if (teamName) {
-                currentLoggedInTeam = teamName;
+                currentLoggedInTeam = normalizeTeamName(teamName); // Normalize team name on login
                 isAdmin = false; // Ensure not admin when logging in as team
                 localStorage.removeItem('isAdminLoggedIn');
                 showMainApp();
@@ -325,6 +412,16 @@
             timerDuration = parseInt(localStorage.getItem('timerDuration')) || 300;
             timerRemaining = parseInt(localStorage.getItem('timerRemaining')) || 300;
             timerActive = localStorage.getItem('timerActive') === 'true';
+
+            // Generate a local pseudo-ID if not already set by Firebase auth
+            if (!displayedUserId) { 
+                let localId = localStorage.getItem('localUserId');
+                if (!localId) {
+                    localId = 'local-' + Math.random().toString(36).substring(2, 15);
+                    localStorage.setItem('localUserId', localId);
+                }
+                displayedUserId = localId;
+            }
             
             updateConnectionStatus('local', 'Mode Local Actif');
             showLoginForm();
@@ -636,7 +733,13 @@
             if (!draftBtn) return;
 
             const currentPickInfo = draftOrder[currentPick - 1];
-            const isCurrentTeamTurn = currentLoggedInTeam && currentPickInfo && currentLoggedInTeam === currentPickInfo.team;
+            
+            // Normalize the current logged in team name for comparison
+            const normalizedLoggedInTeam = currentLoggedInTeam ? normalizeTeamName(currentLoggedInTeam) : null;
+            // Normalize the picking team name from draft order for comparison
+            const normalizedPickingTeam = currentPickInfo ? normalizeTeamName(currentPickInfo.team) : null;
+
+            const isCurrentTeamTurn = normalizedLoggedInTeam && normalizedPickingTeam && normalizedLoggedInTeam === normalizedPickingTeam;
 
             if (isAdmin || (isCurrentTeamTurn && selectedPlayer && !selectedPlayer.drafted)) {
                 draftBtn.disabled = false;
@@ -648,7 +751,7 @@
                 } else if (selectedPlayer.drafted) {
                     draftBtn.textContent = 'Joueur déjà repêché';
                 } else if (!isCurrentTeamTurn && currentLoggedInTeam) {
-                    draftBtn.textContent = `Ce n'est pas le tour de ${currentLoggedInTeam}`;
+                    draftBtn.textContent = `Ce n'est pas le tour de votre équipe (${currentLoggedInTeam})`;
                 } else {
                     // For viewers, ensure the button is always disabled and shows a clear message
                     draftBtn.textContent = 'Action réservée (Spectateur)';
@@ -675,9 +778,14 @@
             }
 
             const pickingTeam = currentPickInfo.team;
+            
+            // Normalize the current logged in team name for comparison
+            const normalizedLoggedInTeam = currentLoggedInTeam ? normalizeTeamName(currentLoggedInTeam) : null;
+            // Normalize the picking team name from draft order for comparison
+            const normalizedPickingTeam = normalizeTeamName(pickingTeam);
 
             // Authorization check
-            if (!isAdmin && currentLoggedInTeam !== pickingTeam) {
+            if (!isAdmin && normalizedLoggedInTeam !== normalizedPickingTeam) {
                 alert(`Ce n'est pas le tour de votre équipe (${currentLoggedInTeam}). C'est le tour de ${pickingTeam}.`);
                 return;
             }
@@ -688,7 +796,7 @@
                     return {
                         ...p,
                         drafted: true,
-                        draftedBy: pickingTeam,
+                        draftedBy: pickingTeam, // Store original picking team name
                         draftRound: currentRound,
                         draftPick: currentPick
                     };
@@ -808,6 +916,85 @@
             // This logic can be complex for arbitrary undrafting, so for simplicity, we'll just update the lists.
             // Admin can manually adjust currentRound/currentPick if needed.
             alert(`Joueur ${undraftedResult.player} a été dé-repêché.`);
+        };
+
+        // Admin function to change the team for a specific pick in the draft order
+        window.changeDraftPickTeam = async function() {
+            if (!isAdmin) return;
+
+            const roundToChange = parseInt(document.getElementById('changePickRound').value);
+            const pickToChange = parseInt(document.getElementById('changePickNumber').value);
+            const newTeamName = document.getElementById('changePickTeamName').value.trim();
+
+            if (isNaN(roundToChange) || roundToChange <= 0 || isNaN(pickToChange) || pickToChange <= 0 || !newTeamName) {
+                alert('Veuillez entrer une ronde, un choix et un nom d\'équipe valides.');
+                return;
+            }
+
+            // Find the index of the pick to change
+            const pickIndex = draftOrder.findIndex(item => item.round === roundToChange && item.pick === pickToChange);
+
+            if (pickIndex === -1) {
+                alert(`Le choix R${roundToChange}-C${pickToChange} n'existe pas dans l'ordre de repêchage.`);
+                return;
+            }
+
+            // Create a copy of the draftOrder array and update the specific pick
+            const updatedDraftOrder = [...draftOrder];
+            updatedDraftOrder[pickIndex] = {
+                ...updatedDraftOrder[pickIndex],
+                team: newTeamName // Update with the new team name
+            };
+
+            await saveDraftOrder(updatedDraftOrder);
+            alert(`Le choix R${roundToChange}-C${pickToChange} a été attribué à ${newTeamName}.`);
+        };
+
+        // Admin function to correct a drafted player's team
+        window.correctDraftPick = async function() {
+            if (!isAdmin) return;
+
+            const round = parseInt(document.getElementById('correctPickRound').value);
+            const pick = parseInt(document.getElementById('correctPickNumber').value);
+            const correctTeam = document.getElementById('correctPickTeamName').value.trim();
+
+            if (isNaN(round) || round <= 0 || isNaN(pick) || pick <= 0 || !correctTeam) {
+                alert('Veuillez entrer une ronde, un choix et une équipe correcte valides.');
+                return;
+            }
+
+            // Find the draft result to correct
+            const resultIndex = draftResults.findIndex(r => r.round === round && r.pick === pick);
+
+            if (resultIndex === -1) {
+                alert(`Aucun choix trouvé pour la Ronde ${round} - Choix ${pick}.`);
+                return;
+            }
+
+            const originalResult = draftResults[resultIndex];
+            const updatedDraftResults = [...draftResults];
+            updatedDraftResults[resultIndex] = {
+                ...originalResult,
+                team: correctTeam // Update the team in draft results
+            };
+
+            // If a player was associated with this pick, update their 'draftedBy' field
+            if (originalResult.playerId) {
+                const playerIndex = players.findIndex(p => p.id === originalResult.playerId);
+                if (playerIndex !== -1) {
+                    const updatedPlayers = [...players];
+                    updatedPlayers[playerIndex] = {
+                        ...updatedPlayers[playerIndex],
+                        draftedBy: correctTeam // Update the draftedBy for the player
+                    };
+                    await savePlayers(updatedPlayers);
+                } else {
+                    console.warn(`Joueur avec l'ID ${originalResult.playerId} non trouvé pour la correction.`);
+                }
+            }
+
+            await saveDraftResults(updatedDraftResults);
+            alert(`Le choix R${round}-C${pick} a été corrigé pour l'équipe: ${correctTeam}.`);
         };
 
 
@@ -1157,6 +1344,9 @@
                 document.getElementById('skipBtn').addEventListener('click', window.skipPick);
                 document.getElementById('draftSelectedPlayerBtn').addEventListener('click', window.draftSelectedPlayer);
                 document.getElementById('logoutBtn').addEventListener('click', window.logout); // Add event listener for logout button
+                document.getElementById('changePickTeamBtn').addEventListener('click', window.changeDraftPickTeam); // Add event listener for change pick team button
+                document.getElementById('correctDraftPickBtn').addEventListener('click', window.correctDraftPick); // NEW: Add event listener for correct draft pick button
+
 
                 // Initial Firebase/Local Mode setup
                 const storedConfig = localStorage.getItem('firebase-config');
@@ -1801,6 +1991,7 @@
                 <span>🔄</span>
                 <span>Synchronisation...</span>
             </div>
+            <div id="userIdDisplay" style="font-size: 0.8rem; color: #9ca3af; margin-top: 5px;">ID Utilisateur: Non connecté</div>
         </div>
 
         <!-- Controls -->
@@ -1843,6 +2034,34 @@
             
             <div style="background: rgba(31, 41, 55, 1); padding: 10px 15px; border-radius: 8px; font-size: 0.9rem;">
                 <span id="playerCount">Joueurs disponibles: 0 / 0</span>
+            </div>
+
+            <!-- Change Draft Pick Team Controls -->
+            <div class="timer-controls" style="background: rgba(31, 41, 55, 1); padding: 15px; border-radius: 8px; margin-top: 15px; text-align: center;">
+                <h3 style="margin-bottom: 10px; color: #fbbf24;">Modifier un choix de repêchage</h3>
+                <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-bottom: 10px;">
+                    <input type="number" id="changePickRound" placeholder="Ronde" min="1" value="1" 
+                            style="width: 80px; padding: 5px; background: rgba(55, 65, 81, 1); border: 1px solid #4b5563; border-radius: 4px; color: white; text-align: center;">
+                    <input type="number" id="changePickNumber" placeholder="Choix" min="1" value="1" 
+                            style="width: 80px; padding: 5px; background: rgba(55, 65, 81, 1); border: 1px solid #4b5563; border-radius: 4px; color: white; text-align: center;">
+                    <input type="text" id="changePickTeamName" placeholder="Nouvelle Équipe" 
+                            style="width: 120px; padding: 5px; background: rgba(55, 65, 81, 1); border: 1px solid #4b5563; border-radius: 4px; color: white; text-align: center;">
+                    <button id="changePickTeamBtn" class="btn btn-primary" style="padding: 5px 10px; font-size: 0.9rem;">Appliquer la modification</button>
+                </div>
+            </div>
+
+            <!-- NEW: Correct Draft Pick Controls -->
+            <div class="timer-controls" style="background: rgba(31, 41, 55, 1); padding: 15px; border-radius: 8px; margin-top: 15px; text-align: center;">
+                <h3 style="margin-bottom: 10px; color: #fbbf24;">Corriger un choix repêché</h3>
+                <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-bottom: 10px;">
+                    <input type="number" id="correctPickRound" placeholder="Ronde" min="1" value="1" 
+                            style="width: 80px; padding: 5px; background: rgba(55, 65, 81, 1); border: 1px solid #4b5563; border-radius: 4px; color: white; text-align: center;">
+                    <input type="number" id="correctPickNumber" placeholder="Choix" min="1" value="1" 
+                            style="width: 80px; padding: 5px; background: rgba(55, 65, 81, 1); border: 1px solid #4b5563; border-radius: 4px; color: white; text-align: center;">
+                    <input type="text" id="correctPickTeamName" placeholder="Équipe Correcte" 
+                            style="width: 120px; padding: 5px; background: rgba(55, 65, 81, 1); border: 1px solid #4b5563; border-radius: 4px; color: white; text-align: center;">
+                    <button id="correctDraftPickBtn" class="btn btn-primary" style="padding: 5px 10px; font-size: 0.9rem;">Corriger le choix</button>
+                </div>
             </div>
         </div>
 
