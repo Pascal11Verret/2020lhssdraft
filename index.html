@@ -1,4 +1,330 @@
-�'}</span><span>${message}</span>`;
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Repêchage LHSS 2020</title>
+    
+    <!-- Firebase SDKs (Updated for Firestore and Auth) -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, where, addDoc, getDocs, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        
+        // Papa Parse pour CSV - Chargé via un script tag traditionnel pour éviter l'erreur d'importation de module
+        // La variable globale 'Papa' sera disponible après le chargement de ce script.
+        // The PapaParse script will be dynamically loaded in window.onload
+        // import Papa from "https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"; // REMOVED: Causes "does not provide an export named 'default'"
+        // window.Papa = Papa; // REMOVED: No longer needed as Papa is globally available
+
+        // Global Firebase variables
+        let app;
+        let db;
+        let auth;
+        let userId;
+        let displayedUserId = null; // This will hold the ID to display
+
+        // Variables globales
+        let players = [];
+        let draftResults = [];
+        let draftOrder = [];
+        let selectedPlayer = null;
+        let currentRound = 1;
+        let currentPick = 1;
+        let isAdmin = false;
+        let currentLoggedInTeam = null; // New: Stores the team the user logged in as
+        let isConnected = false;
+        let useLocalStorage = false; // For local mode fallback
+
+        // Variables pour le compte à rebours
+        let timerDuration = 300; // 5 minutes par défaut (en secondes)
+        let timerRemaining = 300;
+        let timerActive = false;
+        let timerInterval = null;
+
+        // Firestore paths - CORRECTED FOR EVEN SEGMENTS
+        const APP_ID = typeof __app_id !== 'undefined' ? __app_id : 'default-lhss-app';
+
+        // Collection references (will be initialized after 'db' is available)
+        let PLAYERS_COLLECTION_REF;
+        let STATE_COLLECTION_REF; // New collection for global app state documents
+
+        // Document references within the STATE_COLLECTION_REF
+        let DRAFT_RESULTS_DOC_REF;
+        let DRAFT_ORDER_DOC_REF;
+        let GAME_STATE_DOC_REF;
+        let TIMER_STATE_DOC_REF;
+
+        // Default players data (moved from global scope to a function/constant)
+        const defaultPlayers = [
+            {
+                id: "player1", // Use string IDs for Firestore documents
+                nom: "Tim Stützle",
+                position: "C",
+                age: 18,
+                poids: 187,
+                taille: "6'0\"",
+                potentiel: 9,
+                style: "Fabriquant de jeux",
+                precision: "B",
+                commentaire: "Excellent patineur avec des mains exceptionnelles",
+                drafted: false
+            },
+            {
+                id: "player2",
+                nom: "Quinton Byfield",
+                position: "C",
+                age: 18,
+                poids: 220,
+                taille: "6'5\"",
+                potentiel: 8.5,
+                style: "Attaquant Opportuniste",
+                precision: "B",
+                commentaire: "Grand centre dominant physiquement avec d'excellentes habiletés",
+                drafted: false
+            },
+            // Add more default players if needed
+        ];
+
+        // Team name aliases for normalization (e.g., "Winnipeg" -> "Jets")
+        const teamAliases = {
+            "winnipeg": "Jets",
+            "jets": "Jets",
+            "montreal": "Canadiens",
+            "canadiens": "Canadiens",
+            "nashville": "Predators",
+            "predators": "Predators",
+            // Add more aliases as needed
+        };
+
+        /**
+         * Normalizes a team name to a consistent format using predefined aliases.
+         * @param {string} teamName - The team name to normalize.
+         * @returns {string} The normalized team name, or the original if no alias is found.
+         */
+        function normalizeTeamName(teamName) {
+            if (!teamName) return "";
+            const lowerCaseName = teamName.toLowerCase();
+            return teamAliases[lowerCaseName] || teamName;
+        }
+
+        // Initialize Firebase and set up auth listener
+        async function initFirebaseAndAuth() {
+            try {
+                const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+                if (Object.keys(firebaseConfig).length === 0) {
+                    console.warn("Firebase config not found. Showing setup form.");
+                    showFirebaseConfig();
+                    return;
+                }
+
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+                // Initialize collection and document references
+                PLAYERS_COLLECTION_REF = collection(db, 'artifacts', APP_ID, 'public', 'data', 'players');
+                STATE_COLLECTION_REF = collection(db, 'artifacts', APP_ID, 'public', 'data', 'app_state');
+
+                DRAFT_RESULTS_DOC_REF = doc(STATE_COLLECTION_REF, 'draftResults');
+                DRAFT_ORDER_DOC_REF = doc(STATE_COLLECTION_REF, 'draftOrder');
+                GAME_STATE_DOC_REF = doc(STATE_COLLECTION_REF, 'gameState');
+                TIMER_STATE_DOC_REF = doc(STATE_COLLECTION_REF, 'timerState');
+
+
+                // Listen for auth state changes
+                onAuthStateChanged(auth, async (user) => {
+                    if (user) {
+                        userId = user.uid;
+                        displayedUserId = user.uid; // Set displayed ID from Firebase
+                        console.log("Firebase User ID:", userId);
+                        updateConnectionStatus('connected', 'Connecté à Firebase');
+                        isConnected = true;
+                        await initializeFirestoreDataIfEmpty(); // Call this here to ensure data exists
+                        setupRealtimeListeners();
+                        // Attempt to log in as admin if password was correct
+                        if (localStorage.getItem('isAdminLoggedIn') === 'true') {
+                            isAdmin = true;
+                            showMainApp();
+                            updateStatusIndicator();
+                        } else {
+                            showLoginForm(); // Show login form if not admin
+                        }
+                    } else {
+                        userId = null;
+                        displayedUserId = null; // Clear displayed ID if no Firebase user
+                        console.log("No Firebase user logged in.");
+                        updateConnectionStatus('disconnected', 'Déconnecté');
+                        isConnected = false;
+                        showLoginForm();
+                    }
+                });
+
+                // Attempt to sign in with custom token if available
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                    console.log("Signed in with custom token.");
+                } else {
+                    await signInAnonymously(auth);
+                    console.log("Signed in anonymously.");
+                }
+
+            } catch (error) {
+                console.error("Error initializing Firebase or signing in:", error);
+                updateConnectionStatus('offline', 'Erreur de connexion');
+                document.getElementById('firebaseSetup').classList.remove('hidden');
+                document.getElementById('loginForm').classList.add('hidden');
+                document.getElementById('firebaseConfig').value = JSON.stringify(error.message, null, 2);
+            }
+        }
+
+        // Exposed to window for onclick handlers
+        window.initializeFirebase = async function() {
+            const configText = document.getElementById('firebaseConfig').value.trim();
+            
+            if (!configText) {
+                alert('Veuillez entrer votre configuration Firebase');
+                return;
+            }
+            
+            try {
+                const config = JSON.parse(configText);
+                
+                // Sauvegarder la configuration
+                localStorage.setItem('firebase-config', configText);
+                
+                // Initialize Firebase
+                app = initializeApp(config);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+                // Initialize collection and document references
+                PLAYERS_COLLECTION_REF = collection(db, 'artifacts', APP_ID, 'public', 'data', 'players');
+                STATE_COLLECTION_REF = collection(db, 'artifacts', APP_ID, 'public', 'data', 'app_state');
+
+                DRAFT_RESULTS_DOC_REF = doc(STATE_COLLECTION_REF, 'draftResults');
+                DRAFT_ORDER_DOC_REF = doc(STATE_COLLECTION_REF, 'draftOrder');
+                GAME_STATE_DOC_REF = doc(STATE_COLLECTION_REF, 'gameState');
+                TIMER_STATE_DOC_REF = doc(STATE_COLLECTION_REF, 'timerState');
+                
+                setupRealtimeListeners();
+                showLoginForm();
+                
+            } catch (error) {
+                alert('Erreur dans la configuration Firebase: ' + error.message);
+                console.error('Firebase initialization error:', error);
+            }
+        };
+
+        // Function to initialize Firestore data if collections are empty
+        async function initializeFirestoreDataIfEmpty() {
+            if (useLocalStorage) return; // Don't initialize Firestore if in local mode
+
+            try {
+                const gameStateSnap = await getDoc(GAME_STATE_DOC_REF);
+
+                if (!gameStateSnap.exists()) {
+                    console.log("Firestore data not found. Initializing with default data...");
+                    const batch = writeBatch(db);
+
+                    // Set initial game state
+                    batch.set(GAME_STATE_DOC_REF, { currentRound: 1, currentPick: 1 });
+
+                    // Set initial draft results (empty)
+                    batch.set(DRAFT_RESULTS_DOC_REF, { results: [] });
+
+                    // Set initial draft order (empty, user will import)
+                    batch.set(DRAFT_ORDER_DOC_REF, { order: [] });
+
+                    // Set initial timer state
+                    batch.set(TIMER_STATE_DOC_REF, { duration: 300, remaining: 300, active: false });
+
+                    // Add default players to the players collection
+                    for (const player of defaultPlayers) {
+                        batch.set(doc(PLAYERS_COLLECTION_REF, player.id.toString()), player);
+                    }
+
+                    await batch.commit();
+                    console.log("Default data successfully initialized in Firestore.");
+                    // Forcing a re-render by updating local state after batch commit
+                    currentRound = 1;
+                    currentPick = 1;
+                    draftResults = [];
+                    draftOrder = [];
+                    players = defaultPlayers.map(p => ({ ...p, drafted: false })); // Ensure local players reflect initial state
+                    timerDuration = 300;
+                    timerRemaining = 300;
+                    timerActive = false;
+                    updateInterface();
+                    updateTimerDisplay(); // Ensure timer display is correct after reset
+                } else {
+                    console.log("Firestore data already exists. Skipping initialization.");
+                }
+            } catch (error) {
+                console.error("Error initializing Firestore data:", error);
+                // Potentially revert to local mode or show a persistent error message
+                updateConnectionStatus('offline', 'Erreur d\'initialisation des données');
+            }
+        }
+
+        // --- UI State Management ---
+        function updateStatusIndicator() {
+            const indicator = document.getElementById('statusIndicator');
+            const statusText = document.getElementById('statusText');
+            const connectionStatusLogin = document.getElementById('connectionStatus');
+            const connectionStatusMain = document.getElementById('connectionStatusMain');
+            const userIdDisplay = document.getElementById('userIdDisplay'); // Get the new element
+
+            indicator.className = 'status-indicator';
+            connectionStatusLogin.className = 'connection-status';
+            connectionStatusMain.className = 'connection-status';
+
+            if (isAdmin) {
+                indicator.classList.add('status-admin');
+                statusText.textContent = 'Admin';
+                connectionStatusLogin.classList.add('connected');
+                connectionStatusLogin.innerHTML = '<span>✅</span><span>Connecté en tant qu\'Admin</span>';
+                connectionStatusMain.classList.add('connected');
+                connectionStatusMain.innerHTML = '<span>✅</span><span>Connecté en tant qu\'Admin</span>';
+            } else if (isConnected) {
+                indicator.classList.add('status-viewer');
+                statusText.textContent = 'Connecté';
+                connectionStatusLogin.classList.add('connected');
+                connectionStatusLogin.innerHTML = '<span>✅</span><span>Connecté (Spectateur)</span>';
+                connectionStatusMain.classList.add('connected');
+                connectionStatusMain.innerHTML = '<span>✅</span><span>Connecté (Spectateur)</span>';
+            } else if (useLocalStorage) {
+                indicator.classList.add('status-viewer');
+                statusText.textContent = 'Local';
+                connectionStatusLogin.classList.add('connected'); // Using connected style for local mode
+                connectionStatusLogin.innerHTML = '<span>💾</span><span>Mode Local Actif</span>';
+                connectionStatusMain.classList.add('connected');
+                connectionStatusMain.innerHTML = '<span>💾</span><span>Mode Local Actif</span>';
+            } else {
+                indicator.classList.add('status-connecting');
+                statusText.textContent = 'Connexion...';
+                connectionStatusLogin.classList.add('connecting');
+                connectionStatusLogin.innerHTML = '<span>🔄</span><span>Connexion à Firebase...</span>';
+                connectionStatusMain.classList.add('connecting');
+                connectionStatusMain.innerHTML = '<span>🔄</span><span>Synchronisation...</span>';
+            }
+
+            // Update user ID display
+            if (userIdDisplay) {
+                if (displayedUserId) {
+                    userIdDisplay.textContent = `ID Utilisateur: ${displayedUserId}`;
+                } else {
+                    userIdDisplay.textContent = `ID Utilisateur: Non connecté`;
+                }
+            }
+        }
+
+        function updateConnectionStatus(status, message) {
+            const connectionStatusLogin = document.getElementById('connectionStatus');
+            const connectionStatusMain = document.getElementById('connectionStatusMain');
+
+            connectionStatusLogin.className = `connection-status ${status}`;
+            connectionStatusLogin.innerHTML = `<span>${status === 'connected' ? '✅' : status === 'disconnected' ? '❌' : '🔄'}</span><span>${message}</span>`;
 
             connectionStatusMain.className = `connection-status ${status}`;
             connectionStatusMain.innerHTML = `<span>${status === 'connected' ? '✅' : status === 'disconnected' ? '❌' : '🔄'}</span><span>${message}</span>`;
@@ -739,7 +1065,20 @@
                         Choix: r.pick,
                         Équipe: r.team,
                         Joueur: r.player,
-                        ...restOfPlayerDetails // Include all other player details
+                        // Remap player details to French headers
+                        Nom: restOfPlayerDetails.nom,
+                        Position: restOfPlayerDetails.position,
+                        Age: restOfPlayerDetails.age,
+                        Poids: restOfPlayerDetails.poids,
+                        Taille: restOfPlayerDetails.taille,
+                        Potentiel: restOfPlayerDetails.potentiel,
+                        Precision: restOfPlayerDetails.precision,
+                        Style: restOfPlayerDetails.style,
+                        // Add drafted information
+                        Repêché: restOfPlayerDetails.drafted ? 'Oui' : 'Non',
+                        'Repêché par': restOfPlayerDetails.draftedBy || 'N/A',
+                        'Ronde du repêchage': restOfPlayerDetails.draftRound || 'N/A',
+                        'Choix du repêchage': restOfPlayerDetails.draftPick || 'N/A'
                     };
                 } else {
                     // Fallback for players not found (e.g., skipped picks or data inconsistency)
@@ -755,7 +1094,11 @@
                         Taille: 'N/A',
                         Potentiel: 'N/A',
                         Precision: 'N/A',
-                        Style: 'N/A'
+                        Style: 'N/A',
+                        Repêché: 'Oui', // Assuming if it's in draftResults, it was drafted
+                        'Repêché par': r.team,
+                        'Ronde du repêchage': r.round,
+                        'Choix du repêchage': r.pick
                     };
                 }
             });
@@ -1740,8 +2083,10 @@
                 <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-bottom: 10px;">
                     <input type="number" id="changePickRound" placeholder="Ronde" min="1" value="1" 
                             style="width: 80px; padding: 5px; background: rgba(55, 65, 81, 1); border: 1px solid #4b5563; border-radius: 4px; color: white; text-align: center;">
+                    <span style="color: #d1d5db; align-self: center;">Ronde</span>
                     <input type="number" id="changePickNumber" placeholder="Choix" min="1" value="1" 
                             style="width: 80px; padding: 5px; background: rgba(55, 65, 81, 1); border: 1px solid #4b5563; border-radius: 4px; color: white; text-align: center;">
+                    <span style="color: #d1d5db; align-self: center;">Choix</span>
                     <input type="text" id="changePickTeamName" placeholder="Nouvelle Équipe" 
                             style="width: 120px; padding: 5px; background: rgba(55, 65, 81, 1); border: 1px solid #4b5563; border-radius: 4px; color: white; text-align: center;">
                     <button id="changePickTeamBtn" class="btn btn-primary" style="padding: 5px 10px; font-size: 0.9rem;">Appliquer la modification</button>
@@ -1754,8 +2099,10 @@
                 <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-bottom: 10px;">
                     <input type="number" id="correctPickRound" placeholder="Ronde" min="1" value="1" 
                             style="width: 80px; padding: 5px; background: rgba(55, 65, 81, 1); border: 1px solid #4b5563; border-radius: 4px; color: white; text-align: center;">
+                    <span style="color: #d1d5db; align-self: center;">Ronde</span>
                     <input type="number" id="correctPickNumber" placeholder="Choix" min="1" value="1" 
                             style="width: 80px; padding: 5px; background: rgba(55, 65, 81, 1); border: 1px solid #4b5563; border-radius: 4px; color: white; text-align: center;">
+                    <span style="color: #d1d5db; align-self: center;">Choix</span>
                     <input type="text" id="correctPickTeamName" placeholder="Équipe Correcte" 
                             style="width: 120px; padding: 5px; background: rgba(55, 65, 81, 1); border: 1px solid #4b5563; border-radius: 4px; color: white; text-align: center;">
                     <button id="correctDraftPickBtn" class="btn btn-primary" style="padding: 5px 10px; font-size: 0.9rem;">Corriger le choix</button>
@@ -1857,4 +2204,3 @@
     </div>
 </body>
 </html>
-�
