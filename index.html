@@ -625,6 +625,11 @@
                 📋 Importer Ordre CSV
                 <input type="file" accept=".csv" onchange="importDraftOrder(event)" style="display: none;">
             </label>
+
+            <label class="btn btn-info">
+                📊 Importer Résultats CSV
+                <input type="file" accept=".csv" onchange="importDraftResults(event)" style="display: none;">
+            </label>
             
             <button onclick="resetDraft()" class="btn btn-danger">
                 🔄 Réinitialiser
@@ -1259,6 +1264,70 @@
                 },
                 error: function(err) {
                     alert('Erreur lors de l\'importation du fichier CSV de l\'ordre de repêchage: ' + err.message);
+                    console.error('Erreur de parse CSV:', err);
+                }
+            });
+        }
+
+        // Importe les résultats de repêchage depuis un fichier CSV
+        function importDraftResults(event) {
+            if (!isAdmin) {
+                alert("Vous n'êtes pas autorisé à importer les résultats de repêchage.");
+                return;
+            }
+            const file = event.target.files[0];
+            if (!file) {
+                return;
+            }
+
+            PapaParse.parse(file, {
+                header: true,
+                dynamicTyping: true,
+                skipEmptyLines: true,
+                complete: function(results) {
+                    // Vérifie la présence des colonnes nécessaires
+                    if (!results.data[0] || !results.data[0].PickNumber || !results.data[0].Round || !results.data[0].Team || !results.data[0].PlayerName || !results.data[0].PlayerPosition) {
+                        alert("Le fichier CSV des résultats de repêchage doit contenir les colonnes: PickNumber, Round, Team, PlayerName, PlayerPosition, Timestamp (optionnel).");
+                        return;
+                    }
+
+                    const importedResults = results.data.map(row => ({
+                        pickNumber: parseInt(row.PickNumber),
+                        round: parseInt(row.Round),
+                        team: row.Team,
+                        playerId: parseInt(row.PlayerId) || null, // Assurez-vous que PlayerId est présent ou gérez-le
+                        playerName: row.PlayerName,
+                        playerPosition: row.PlayerPosition,
+                        timestamp: row.Timestamp || new Date().toISOString()
+                    })).filter(item => !isNaN(item.pickNumber) && !isNaN(item.round) && item.team && item.playerName && item.playerPosition);
+
+                    if (importedResults.length > 0) {
+                        // Réinitialise le statut 'drafted' de tous les joueurs actuels
+                        players.forEach(p => p.drafted = false);
+
+                        // Marque les joueurs comme repêchés en fonction des résultats importés
+                        importedResults.forEach(importedResult => {
+                            const playerToMark = players.find(p => p.id === importedResult.playerId);
+                            if (playerToMark) {
+                                playerToMark.drafted = true;
+                            } else {
+                                console.warn(`Joueur avec ID ${importedResult.playerId} (${importedResult.playerName}) non trouvé dans la liste des joueurs. Impossible de le marquer comme repêché.`);
+                            }
+                        });
+
+                        draftResults = importedResults.sort((a, b) => a.pickNumber - b.pickNumber); // Trie par numéro de choix
+
+                        // Met à jour les données dans Firebase/LocalStorage
+                        updatePlayers(); // Met à jour les joueurs avec le nouveau statut 'drafted'
+                        updateDraftResults(); // Met à jour les résultats de repêchage
+
+                        alert('Résultats de repêchage importés avec succès !');
+                    } else {
+                        alert('Le fichier CSV des résultats de repêchage est vide ou mal formaté.');
+                    }
+                },
+                error: function(err) {
+                    alert('Erreur lors de l\'importation du fichier CSV des résultats de repêchage: ' + err.message);
                     console.error('Erreur de parse CSV:', err);
                 }
             });
@@ -1986,4 +2055,3 @@
     </script>
 </body>
 </html>
-
