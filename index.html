@@ -5,12 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Repêchage LHSS 2020</title>
     
+    <!-- Firebase SDKs -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-app-compat.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-database-compat.min.js"></script>
     
+    <!-- Papa Parse pour CSV -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     
     <style>
+        /* Styles généraux */
         * {
             margin: 0;
             padding: 0;
@@ -43,6 +46,7 @@
             margin-bottom: 10px;
         }
 
+        /* Styles du logo */
         .draft-logo {
             display: inline-block;
             margin: 20px 0;
@@ -62,8 +66,7 @@
             }
         }
 
-        /* Section des logos d'équipes retirée pour éviter les problèmes de copyright */
-
+        /* Styles du formulaire de connexion et de configuration Firebase */
         .login-form {
             max-width: 400px;
             margin: 50px auto;
@@ -73,6 +76,7 @@
             text-align: center;
         }
 
+        /* Styles des contrôles et boutons */
         .controls {
             display: flex;
             gap: 15px;
@@ -104,6 +108,7 @@
         .btn:hover { transform: translateY(-2px); }
         .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
+        /* Styles de la grille principale */
         .grid {
             display: grid;
             grid-template-columns: 1fr 1fr 1fr;
@@ -119,6 +124,7 @@
             .controls { flex-direction: column; }
         }
 
+        /* Styles des panneaux */
         .panel {
             background: rgba(31, 41, 55, 0.9);
             border-radius: 15px;
@@ -135,6 +141,7 @@
             gap: 10px;
         }
 
+        /* Styles des champs de saisie et de sélection */
         .search-input, .select-input {
             width: 100%;
             padding: 10px;
@@ -150,6 +157,7 @@
             border-color: #3b82f6;
         }
 
+        /* Styles de la liste des joueurs */
         .player-list {
             max-height: 400px;
             overflow-y: auto;
@@ -217,13 +225,14 @@
             gap: 5px;
         }
 
+        /* Styles des résultats du repêchage */
         .draft-result {
             background: rgba(55, 65, 81, 1);
             padding: 12px;
             border-radius: 8px;
             margin-bottom: 8px;
             display: flex;
-            justify-content: space-between; /* Changed from 'between' to 'space-between' for valid CSS */
+            justify-content: space-between; 
             align-items: center;
         }
 
@@ -234,6 +243,7 @@
             margin-bottom: 15px;
         }
 
+        /* Styles de chargement */
         .loading {
             text-align: center;
             padding: 40px;
@@ -255,6 +265,7 @@
             100% { transform: rotate(360deg); }
         }
 
+        /* Indicateur de statut de connexion */
         .status-indicator {
             position: fixed;
             top: 20px;
@@ -281,10 +292,7 @@
             background: #ef4444;
         }
 
-        .export-data {
-            display: none;
-        }
-
+        /* Styles des tableaux */
         .table {
             width: 100%;
             border-collapse: collapse;
@@ -324,6 +332,7 @@
             margin-top: 10px;
         }
 
+        /* Styles du timer */
         .timer-controls {
             background: rgba(31, 41, 55, 1);
             border: 2px solid #4b5563;
@@ -343,6 +352,7 @@
             padding: 8px 12px;
         }
 
+        /* Styles spécifiques à l'ordre de repêchage */
         #draftOrderPanel {
             background: rgba(31, 41, 55, 0.95);
             border: 1px solid #4b5563;
@@ -355,7 +365,7 @@
             padding: 8px 12px;
             background-color: rgba(55, 65, 81, 0.8);
             border-bottom: 1px solid #4b5563;
-            cursor: grab; /* Indicates draggable */
+            cursor: grab; /* Indique la possibilité de glisser */
             transition: background-color 0.2s ease-in-out;
         }
 
@@ -369,7 +379,7 @@
 
         #draftOrderTable .pick-item.dragging {
             opacity: 0.7;
-            background-color: rgba(99, 102, 241, 0.8); /* Highlight when dragging */
+            background-color: rgba(99, 102, 241, 0.8); /* Surligne lors du glisser */
         }
 
         #draftOrderTable .pick-item span {
@@ -379,7 +389,7 @@
         
         #draftOrderTable .pick-item .pick-number {
             font-weight: bold;
-            min-width: 60px; /* Ensure consistent width */
+            min-width: 60px; /* Assure une largeur constante */
         }
 
         #draftOrderTable .pick-item .team-name {
@@ -410,6 +420,7 @@
             display: none !important;
         }
 
+        /* Styles de la configuration Firebase */
         .firebase-setup {
             background: rgba(239, 68, 68, 0.1);
             border: 1px solid #ef4444;
@@ -423,6 +434,7 @@
             margin-bottom: 10px;
         }
 
+        /* Styles du statut de connexion */
         .connection-status {
             display: flex;
             align-items: center;
@@ -450,10 +462,12 @@
     </style>
 </head>
 <body>
+    <!-- Indicateur de statut global -->
     <div id="statusIndicator" class="status-indicator status-connecting">
         <span id="statusText">Connexion...</span>
     </div>
 
+    <!-- Section de configuration Firebase -->
     <div id="firebaseSetup" class="login-form hidden">
         <h2>🔧 Configuration Firebase</h2>
         <div class="firebase-setup">
@@ -467,13 +481,14 @@
         
         <textarea id="firebaseConfig" placeholder='Collez votre configuration Firebase ici, exemple:
 {
-  "apiKey": "votre-api-key",
-  "authDomain": "votre-projet.firebaseapp.com",
-  "databaseURL": "https://votre-projet-default-rtdb.firebaseio.com/",
-  "projectId": "votre-projet",
-  "storageBucket": "votre-projet.appspot.com",
-  "messagingSenderId": "123456789",
-  "appId": "votre-app-id"
+  "apiKey": "AIzaSyBXrY5MIuqN5kH_jcnezC71rSeb0pr_Sms",
+            "authDomain": "lhssdraft.firebaseapp.com",
+            "databaseURL": "https://lhssdraft-default-rtdb.firebaseio.com",
+            "projectId": "lhssdraft",
+            "storageBucket": "lhssdraft.firebasestorage.app",
+            "messagingSenderId": "441205645400",
+            "appId": "1:441205645400:web:85d8c86c9a77891b916a2d",
+            "measurementId": "G-N7RN68KTND"
 }'
             style="width: 100%; height: 150px; margin-bottom: 15px; padding: 10px; background: rgba(55, 65, 81, 1); border: 1px solid #4b5563; border-radius: 8px; color: white; font-family: monospace; font-size: 0.8rem;"></textarea>
         
@@ -494,6 +509,7 @@
         </div>
     </div>
 
+    <!-- Formulaire de connexion -->
     <div id="loginForm" class="login-form">
         <h2>🏒 Repêchage LHSS 2020</h2>
         
@@ -533,10 +549,12 @@
         </div>
     </div>
 
+    <!-- Application principale -->
     <div id="mainApp" class="container hidden">
         <div class="header">
             <h1>🏒 Repêchage LHSS 2020</h1>
             
+            <!-- Logo LHSS Draft -->
             <div class="draft-logo">
                 <svg class="lhss-draft-logo" viewBox="0 0 400 120" xmlns="http://www.w3.org/2000/svg">
                     <defs>
@@ -578,7 +596,9 @@
             </div>
         </div>
 
+        <!-- Contrôles administrateur -->
         <div id="adminControls" class="controls hidden">
+            <!-- Contrôles du timer -->
             <div class="timer-controls" style="background: rgba(31, 41, 55, 1); padding: 15px; border-radius: 8px; margin-bottom: 15px; text-align: center;">
                 <h3 style="margin-bottom: 10px; color: #fbbf24;">⏱️ Compte à Rebours</h3>
                 <div id="timerDisplay" style="font-size: 2rem; font-weight: bold; color: #60a5fa; margin-bottom: 10px;">05:00</div>
@@ -625,6 +645,7 @@
             </div>
         </div>
 
+        <!-- Informations pour le mode spectateur -->
         <div id="viewerInfo" class="hidden" style="text-align: center; margin-bottom: 20px; color: #9ca3af;">
             <p>Mode spectateur - Les données se synchronisent automatiquement en temps réel</p>
             <p style="font-size: 0.9rem; margin-top: 5px;">💡 Cliquez sur un joueur pour voir ses détails. Utilisez les filtres pour naviguer plus facilement.</p>
@@ -636,8 +657,10 @@
             </div>
         </div>
 
+        <!-- Panneau de l'ordre de repêchage -->
         <div id="draftOrderPanel" class="panel">
             <h2>📋 Ordre de Repêchage</h2>
+            <!-- Contrôles admin pour l'ordre de repêchage -->
             <div id="adminDraftOrderControls" class="controls hidden" style="margin-bottom: 15px;">
                 <input type="number" id="swapPick1" placeholder="Choix 1" class="search-input" style="width: 100px; margin-bottom: 0;">
                 <input type="number" id="swapPick2" placeholder="Choix 2" class="search-input" style="width: 100px; margin-bottom: 0;">
@@ -663,12 +686,15 @@
             </div>
         </div>
 
+        <!-- Grille des panneaux (Joueurs, Détails, Résultats) -->
         <div class="grid">
+            <!-- Panneau des joueurs disponibles -->
             <div id="playersPanel" class="panel">
                 <h2>
                     👥 Joueurs Disponibles (<span id="availableCount">0</span>)
                 </h2>
                 
+                <!-- Filtres de recherche -->
                 <div id="searchFilters">
                     <input type="text" id="searchInput" placeholder="Rechercher un joueur..." class="search-input">
                     <select id="positionFilter" class="select-input">
@@ -684,6 +710,7 @@
                 <div id="playersList" class="player-list"></div>
             </div>
 
+            <!-- Panneau des détails du joueur -->
             <div id="playerDetailsPanel" class="panel">
                 <h2>📋 Détails du Joueur</h2>
                 <div id="playerDetails">
@@ -693,6 +720,7 @@
                 </div>
             </div>
 
+            <!-- Panneau des résultats du repêchage -->
             <div class="panel">
                 <h2>🏆 Résultats du Repêchage</h2>
                 <div id="draftResults">
@@ -706,6 +734,7 @@
             </div>
         </div>
 
+        <!-- Tableau récapitulatif du repêchage -->
         <div id="draftSummary" class="panel" style="margin-top: 30px;">
             <h2>📊 Tableau Récapitulatif</h2>
             <div id="summaryTable"></div>
@@ -714,143 +743,47 @@
 
     <script>
         // Variables globales
-        let players = [];
-        let draftResults = [];
-        let draftOrder = []; 
-        let selectedPlayer = null;
-        let currentRound = 1;
-        let currentPick = 1;
-        let isAdmin = false;
-        let selectedTeam = 'Capitals'; // Default for admin
-        let viewerSelectedTeam = ''; // New: For spectator mode team selection
-        let database = null;
-        let firebaseApp = null;
-        let isConnected = false;
-        let useLocalStorage = false;
+        let players = []; // Liste de tous les joueurs
+        let draftResults = []; // Résultats des choix de repêchage
+        let draftOrder = []; // Ordre de repêchage
+        let selectedPlayer = null; // Joueur actuellement sélectionné dans l'interface
+        let currentRound = 1; // Ronde actuelle du repêchage
+        let currentPick = 1; // Choix actuel dans la ronde
+        let isAdmin = false; // Indique si l'utilisateur est un administrateur
+        let selectedTeam = 'Capitals'; // Équipe sélectionnée pour l'admin
+        let viewerSelectedTeam = ''; // Équipe sélectionnée pour le mode spectateur
+        let database = null; // Instance de la base de données Firebase
+        let firebaseApp = null; // Instance de l'application Firebase
+        let isConnected = false; // Statut de connexion à Firebase
+        let useLocalStorage = false; // Indique si le mode local est actif
         
         // Variables pour le compte à rebours
-        let timerDuration = 300; // 5 minutes par défaut (en secondes)
-        let timerRemaining = 300;
-        let timerActive = false;
-        let timerInterval = null;
+        let timerDuration = 300; // Durée par défaut du timer (5 minutes en secondes)
+        let timerRemaining = 300; // Temps restant sur le timer
+        let timerActive = false; // Indique si le timer est actif
+        let timerInterval = null; // Intervalle du timer
+        
+        // Variables pour le glisser-déposer de l'ordre de repêchage
+        let draggingPick = null; // Élément de choix en cours de glissement
 
-        // Variables pour le drag and drop de l'ordre de repêchage
-        let draggingPick = null;
-
-        // Configuration Firebase par défaut (à remplacer)
+        // Configuration Firebase par défaut (à remplacer par la vôtre)
         const defaultFirebaseConfig = {
-            // Cette configuration doit être remplacée par celle de votre projet
             databaseURL: "https://votre-projet-default-rtdb.firebaseio.com/"
         };
 
-        // Données initiales (backup)
+        // Données initiales des joueurs (utilisées si aucune donnée n'est importée ou dans le mode local)
         const defaultPlayers = [
-            {
-                id: 1,
-                nom: "Tim Stützle",
-                position: "C",
-                age: 18,
-                poids: 187,
-                taille: "6'0\"",
-                potentiel: 9,
-                style: "Fabriquant de jeux",
-                precision: "B",
-                commentaire: "Excellent patineur avec des mains exceptionnelles",
-                drafted: false
-            },
-            {
-                id: 2,
-                nom: "Quinton Byfield",
-                position: "C",
-                age: 18,
-                poids: 220,
-                taille: "6'5\"",
-                potentiel: 8.5,
-                style: "Attaquant Opportuniste",
-                precision: "B",
-                commentaire: "Grand centre dominant physiquement avec d'excellentes habiletés",
-                drafted: false
-            },
-            {
-                id: 3,
-                nom: "Alexis Lafrenière",
-                position: "LW",
-                age: 18,
-                poids: 193,
-                taille: "6'1\"",
-                potentiel: 9.5,
-                style: "Marqueur élite",
-                precision: "A",
-                commentaire: "Le meilleur joueur de la cuvée, complet et intelligent",
-                drafted: false
-            },
-            {
-                id: 4,
-                nom: "Jamie Drysdale",
-                position: "D",
-                age: 18,
-                poids: 175,
-                taille: "5'11\"",
-                potentiel: 8.0,
-                style: "Défenseur offensif",
-                precision: "B+",
-                commentaire: "Quart-arrière de puissance avec une excellente vision",
-                drafted: false
-            },
-            {
-                id: 5,
-                nom: "Cole Perfetti",
-                position: "C",
-                age: 18,
-                poids: 185,
-                taille: "5'10\"",
-                potentiel: 8.2,
-                style: "Joueur cérébral",
-                precision: "A-",
-                commentaire: "Intelligence de jeu élite et mains rapides",
-                drafted: false
-            },
-            {
-                id: 6,
-                nom: "Lucas Raymond",
-                position: "RW",
-                age: 18,
-                poids: 180,
-                taille: "5'10\"",
-                potentiel: 8.3,
-                style: "Skilled Forward",
-                precision: "B+",
-                commentaire: "Patineur fluide avec de bonnes aptitudes de passeur",
-                drafted: false
-            },
-            {
-                id: 7,
-                nom: "Marco Rossi",
-                position: "C",
-                age: 18,
-                poids: 183,
-                taille: "5'9\"",
-                potentiel: 8.1,
-                style: "Two-way center",
-                precision: "A",
-                commentaire: "Travailleur acharné et habile dans les deux sens de la patinoire",
-                drafted: false
-            },
-            {
-                id: 8,
-                nom: "Jack Quinn",
-                position: "RW",
-                age: 18,
-                poids: 176,
-                taille: "6'0\"",
-                potentiel: 7.9,
-                style: "Sniper",
-                precision: "A+",
-                commentaire: "Un excellent tir et un sens du but inné",
-                drafted: false
-            }
+            { id: 1, nom: "Tim Stützle", position: "C", age: 18, poids: 187, taille: "6'0\"", potentiel: 9, style: "Fabriquant de jeux", precision: "B", commentaire: "Excellent patineur avec des mains exceptionnelles", drafted: false },
+            { id: 2, nom: "Quinton Byfield", position: "C", age: 18, poids: 220, taille: "6'5\"", potentiel: 8.5, style: "Attaquant Opportuniste", precision: "B", commentaire: "Grand centre dominant physiquement avec d'excellentes habiletés", drafted: false },
+            { id: 3, nom: "Alexis Lafrenière", position: "LW", age: 18, poids: 193, taille: "6'1\"", potentiel: 9.5, style: "Marqueur élite", precision: "A", commentaire: "Le meilleur joueur de la cuvée, complet et intelligent", drafted: false },
+            { id: 4, nom: "Jamie Drysdale", position: "D", age: 18, poids: 175, taille: "5'11\"", potentiel: 8.0, style: "Défenseur offensif", precision: "B+", commentaire: "Quart-arrière de puissance avec une excellente vision", drafted: false },
+            { id: 5, nom: "Cole Perfetti", position: "C", age: 18, poids: 185, taille: "5'10\"", potentiel: 8.2, style: "Joueur cérébral", precision: "A-", commentaire: "Intelligence de jeu élite et mains rapides", drafted: false },
+            { id: 6, nom: "Lucas Raymond", position: "RW", age: 18, poids: 180, taille: "5'10\"", potentiel: 8.3, style: "Skilled Forward", precision: "B+", commentaire: "Patineur fluide avec de bonnes aptitudes de passeur", drafted: false },
+            { id: 7, nom: "Marco Rossi", position: "C", age: 18, poids: 183, taille: "5'9\"", potentiel: 8.1, style: "Two-way center", precision: "A", commentaire: "Travailleur acharné et habile dans les deux sens de la patinoire", drafted: false },
+            { id: 8, nom: "Jack Quinn", position: "RW", age: 18, poids: 176, taille: "6'0\"", potentiel: 7.9, style: "Sniper", precision: "A+", commentaire: "Un excellent tir et un sens du but inné", drafted: false }
         ];
 
+        // Liste des équipes par défaut
         const defaultTeams = [
             "Capitals", "Flyers", "Ducks", "Panthers", "Sabres", "Jets", "Oilers",
             "Stars", "Blackhawks", "Blues", "Sharks", "Rangers", "Canadiens",
@@ -859,7 +792,7 @@
             "Penguins"
         ];
 
-        // Initialisation Firebase
+        // Initialise Firebase avec la configuration fournie
         function initializeFirebase() {
             const configText = document.getElementById('firebaseConfig').value.trim();
             
@@ -871,15 +804,15 @@
             try {
                 const config = JSON.parse(configText);
                 
-                // Sauvegarder la configuration
+                // Sauvegarde la configuration dans le stockage local
                 localStorage.setItem('firebase-config', configText);
                 
-                // Initialiser Firebase
+                // Initialise l'application Firebase
                 firebaseApp = firebase.initializeApp(config);
                 database = firebase.database();
                 
-                setupRealtimeListeners();
-                showLoginForm();
+                setupRealtimeListeners(); // Met en place les écouteurs de base de données
+                showLoginForm(); // Affiche le formulaire de connexion
                 
             } catch (error) {
                 alert('Erreur dans la configuration Firebase: ' + error.message);
@@ -887,10 +820,11 @@
             }
         }
 
+        // Active le mode local (sans synchronisation Firebase)
         function useLocalMode() {
             useLocalStorage = true;
             localStorage.setItem('use-local-mode', 'true');
-            // Populate initial data for local mode if not already present
+            // Initialise les données par défaut dans le stockage local si elles n'existent pas
             if (!localStorage.getItem('players')) {
                 localStorage.setItem('players', JSON.stringify(defaultPlayers));
                 localStorage.setItem('draftResults', JSON.stringify([]));
@@ -898,8 +832,8 @@
                 localStorage.setItem('gameState', JSON.stringify({ currentRound: 1, currentPick: 1 }));
                 localStorage.setItem('timer', JSON.stringify({ duration: 300, remaining: 300, active: false }));
             }
-            showLoginForm();
-            // Update initial state from local storage
+            showLoginForm(); // Affiche le formulaire de connexion
+            // Charge l'état initial depuis le stockage local
             players = JSON.parse(localStorage.getItem('players'));
             draftResults = JSON.parse(localStorage.getItem('draftResults'));
             draftOrder = JSON.parse(localStorage.getItem('draftOrder'));
@@ -910,18 +844,21 @@
             timerDuration = timerState.duration;
             timerRemaining = timerState.remaining;
             timerActive = timerState.active;
-            updateInterface();
-            updateConnectionStatus('local', 'Mode Local Actif');
-            populateTeamSelectors(); // Ensure team selectors are populated
+            updateInterface(); // Met à jour l'interface
+            updateConnectionStatus('local', 'Mode Local Actif'); // Met à jour le statut de connexion
+            populateTeamSelectors(); // Remplit les sélecteurs d'équipe
         }
 
+        // Affiche la section de configuration Firebase
         function showFirebaseConfig() {
             document.getElementById('loginForm').classList.add('hidden');
             document.getElementById('firebaseSetup').classList.remove('hidden');
         }
 
+        // Affiche le formulaire de connexion
         function showLoginForm() {
             document.getElementById('firebaseSetup').classList.add('hidden');
+            document.getElementById('mainApp').classList.add('hidden'); // Cache l'application principale
             document.getElementById('loginForm').classList.remove('hidden');
             
             if (useLocalStorage) {
@@ -931,49 +868,44 @@
             } else {
                 updateConnectionStatus('connecting', 'Connexion à Firebase...');
             }
-            populateTeamSelectors(); // Always populate team selectors when showing login form
+            populateTeamSelectors(); // Remplit toujours les sélecteurs d'équipe lors de l'affichage du formulaire de connexion
         }
 
-        // Configuration des listeners temps réel
+        // Configure les listeners temps réel pour Firebase Realtime Database
         function setupRealtimeListeners() {
-            if (!database || useLocalStorage) return;
+            if (!database || useLocalStorage) return; // Ne fait rien si pas de DB ou en mode local
 
             // Listener pour les joueurs
             database.ref('players').on('value', (snapshot) => {
                 const data = snapshot.val();
-                if (data) {
-                    players = data;
-                    updateInterface();
-                }
+                // Assure que les données sont un tableau pour une manipulation facile
+                players = data ? Object.values(data) : []; 
+                updateInterface();
                 updateConnectionStatus('connected', 'Connecté à Firebase');
             }, (error) => {
-                console.error("Firebase players read failed: " + error.code);
+                console.error("Erreur de lecture Firebase (joueurs): " + error.code);
                 updateConnectionStatus('disconnected', 'Déconnecté de Firebase');
             });
 
-            // Listener pour les résultats du draft
+            // Listener pour les résultats du repêchage
             database.ref('draftResults').on('value', (snapshot) => {
                 const data = snapshot.val();
-                if (data) {
-                    draftResults = data;
-                    updateInterface();
-                }
+                draftResults = data ? Object.values(data) : [];
+                updateInterface();
             }, (error) => {
-                console.error("Firebase draftResults read failed: " + error.code);
+                console.error("Erreur de lecture Firebase (résultats): " + error.code);
             });
 
             // Listener pour l'ordre de repêchage
             database.ref('draftOrder').on('value', (snapshot) => {
                 const data = snapshot.val();
-                if (data) {
-                    draftOrder = data;
-                    updateInterface();
-                }
+                draftOrder = data ? Object.values(data) : [];
+                updateInterface();
             }, (error) => {
-                console.error("Firebase draftOrder read failed: " + error.code);
+                console.error("Erreur de lecture Firebase (ordre): " + error.code);
             });
 
-            // Listener pour l'état du jeu
+            // Listener pour l'état du jeu (ronde, choix actuels)
             database.ref('gameState').on('value', (snapshot) => {
                 const data = snapshot.val();
                 if (data) {
@@ -982,7 +914,7 @@
                     updateInterface();
                 }
             }, (error) => {
-                console.error("Firebase gameState read failed: " + error.code);
+                console.error("Erreur de lecture Firebase (état du jeu): " + error.code);
             });
 
             // Listener pour le timer
@@ -993,41 +925,33 @@
                     timerRemaining = data.remaining || 300;
                     timerActive = data.active || false;
                     
-                    // Only start local timer if not admin and timer is active
+                    // Démarre le timer localement si non-admin et timer actif dans la DB
                     if (!isAdmin && timerActive && !timerInterval) {
                         startLocalTimer();
-                    } else if (!timerActive && timerInterval) {
+                    } else if (!timerActive && timerInterval) { // Arrête le timer si inactif dans la DB
                         clearInterval(timerInterval);
                         timerInterval = null;
                     }
-                    updateTimerDisplay();
+                    updateTimerDisplay(); // Met à jour l'affichage du timer
                 }
             }, (error) => {
-                console.error("Firebase timer read failed: " + error.code);
+                console.error("Erreur de lecture Firebase (timer): " + error.code);
             });
 
-            // Listener pour la connexion
+            // Listener pour le statut de connexion à Firebase
             database.ref('.info/connected').on('value', (snapshot) => {
                 isConnected = snapshot.val();
                 if (isConnected) {
                     updateConnectionStatus('connected', 'Connecté à Firebase');
-                    // Fetch initial data once connected
-                    if (players.length === 0) { // Only fetch if not already populated
-                        database.ref('players').once('value', (s) => {
-                            if (!s.val()) database.ref('players').set(defaultPlayers);
-                        });
-                    }
-                    if (draftOrder.length === 0) { // Only fetch if not already populated
-                        database.ref('draftOrder').once('value', (s) => {
-                            if (!s.val()) database.ref('draftOrder').set(generateDefaultDraftOrder());
-                        });
-                    }
+                    // Récupère les données initiales si non déjà peuplées (pour éviter les écritures inutiles)
+                    initializeDefaultData();
                 } else {
                     updateConnectionStatus('disconnected', 'Déconnecté de Firebase');
                 }
             });
         }
 
+        // Met à jour le statut de connexion affiché dans l'interface
         function updateConnectionStatus(status, text) {
             const statusIndicator = document.getElementById('statusIndicator');
             const statusText = document.getElementById('statusText');
@@ -1036,16 +960,22 @@
 
             statusIndicator.className = `status-indicator status-${status}`;
             statusText.textContent = text;
-            connectionStatusLogin.className = `connection-status ${status}`;
-            connectionStatusLogin.querySelector('span:last-child').textContent = text;
-            connectionStatusMain.className = `connection-status ${status}`;
-            connectionStatusMain.querySelector('span:last-child').textContent = text;
+            // Met à jour le statut dans le formulaire de connexion
+            if (connectionStatusLogin) { // Vérifie si l'élément existe
+                connectionStatusLogin.className = `connection-status ${status}`;
+                connectionStatusLogin.querySelector('span:last-child').textContent = text;
+            }
+            // Met à jour le statut dans l'application principale
+            if (connectionStatusMain) { // Vérifie si l'élément existe
+                connectionStatusMain.className = `connection-status ${status}`;
+                connectionStatusMain.querySelector('span:last-child').textContent = text;
+            }
         }
 
-        // Gestion du login
+        // Gère la connexion en tant qu'administrateur
         function loginAsAdmin() {
             const password = document.getElementById('adminPassword').value;
-            if (password === 'lhss2020') {
+            if (password === 'lhss2020') { // Mot de passe admin codé en dur
                 isAdmin = true;
                 document.getElementById('loginForm').classList.add('hidden');
                 document.getElementById('mainApp').classList.remove('hidden');
@@ -1053,15 +983,16 @@
                 document.getElementById('viewerInfo').classList.add('hidden');
                 document.getElementById('statusIndicator').classList.add('status-admin');
                 document.getElementById('statusIndicator').classList.remove('status-viewer');
-                document.getElementById('statusText').textContent = 'Admin Mode';
-                document.getElementById('adminDraftOrderControls').classList.remove('hidden'); // Show admin controls for draft order
-                populateTeamSelectors(); // Ensure admin team selector is populated
+                document.getElementById('statusText').textContent = 'Mode Admin';
+                document.getElementById('adminDraftOrderControls').classList.remove('hidden'); // Affiche les contrôles admin pour l'ordre
+                populateTeamSelectors(); // Assure que le sélecteur d'équipe admin est peuplé
                 updateInterface();
             } else {
                 alert('Mot de passe admin incorrect.');
             }
         }
 
+        // Gère la connexion en tant que spectateur
         function loginAsViewer() {
             isAdmin = false;
             viewerSelectedTeam = document.getElementById('viewerTeamSelect').value;
@@ -1071,36 +1002,37 @@
             }
             document.getElementById('loginForm').classList.add('hidden');
             document.getElementById('mainApp').classList.remove('hidden');
-            document.getElementById('adminControls').classList.add('hidden');
-            document.getElementById('viewerInfo').classList.remove('hidden');
+            document.getElementById('adminControls').classList.add('hidden'); // Cache les contrôles admin
+            document.getElementById('viewerInfo').classList.remove('hidden'); // Affiche les infos spectateur
             document.getElementById('statusIndicator').classList.add('status-viewer');
             document.getElementById('statusIndicator').classList.remove('status-admin');
-            document.getElementById('statusText').textContent = 'Spectateur Mode';
-            document.getElementById('adminDraftOrderControls').classList.add('hidden'); // Hide admin controls for draft order
+            document.getElementById('statusText').textContent = 'Mode Spectateur';
+            document.getElementById('adminDraftOrderControls').classList.add('hidden'); // Cache les contrôles admin pour l'ordre
             document.getElementById('viewerTeamDisplay').textContent = `Visualisation pour : ${viewerSelectedTeam}`;
             updateInterface();
         }
 
-        // Fonction pour générer l'ordre de repêchage par défaut (ex: 3 rondes, équipes en rotation)
+        // Génère un ordre de repêchage par défaut (ex: 10 rondes, équipes en rotation)
         function generateDefaultDraftOrder() {
             const order = [];
-            const teams = defaultTeams; // Using the predefined default teams
-            const numRounds = 10; // Example: 10 rounds
+            const teams = [...defaultTeams].sort(); // Trie les équipes pour un ordre cohérent
+            const numRounds = 10; // Exemple: 10 rondes
+            const picksPerRound = teams.length;
 
             for (let round = 1; round <= numRounds; round++) {
-                if (round % 2 === 1) { // Odd rounds: A-Z
-                    for (let i = 0; i < teams.length; i++) {
+                if (round % 2 === 1) { // Rondes impaires: ordre normal (A-Z)
+                    for (let i = 0; i < picksPerRound; i++) {
                         order.push({
                             round: round,
-                            pick: (round - 1) * teams.length + (i + 1),
+                            pick: (round - 1) * picksPerRound + (i + 1),
                             team: teams[i]
                         });
                     }
-                } else { // Even rounds: Z-A
-                    for (let i = teams.length - 1; i >= 0; i--) {
+                } else { // Rondes paires: ordre inverse (Z-A)
+                    for (let i = picksPerRound - 1; i >= 0; i--) {
                         order.push({
                             round: round,
-                            pick: (round - 1) * teams.length + (teams.length - i),
+                            pick: (round - 1) * picksPerRound + (picksPerRound - i),
                             team: teams[i]
                         });
                     }
@@ -1109,16 +1041,16 @@
             return order;
         }
 
-        // Populate team selectors (admin and viewer)
+        // Peuple les sélecteurs d'équipe (pour admin et spectateur)
         function populateTeamSelectors() {
             const adminTeamSelect = document.getElementById('teamSelect');
             const viewerTeamSelect = document.getElementById('viewerTeamSelect');
 
-            // Clear existing options
+            // Vide les options existantes
             adminTeamSelect.innerHTML = '';
             viewerTeamSelect.innerHTML = '<option value="">Sélectionnez votre équipe (Spectateur)</option>';
 
-            defaultTeams.forEach(team => {
+            defaultTeams.sort().forEach(team => { // Trie les équipes pour l'affichage
                 const optionAdmin = document.createElement('option');
                 optionAdmin.value = team;
                 optionAdmin.textContent = team;
@@ -1130,29 +1062,81 @@
                 viewerTeamSelect.appendChild(optionViewer);
             });
 
-            // Set the currently selected team for admin
+            // Définit l'équipe actuellement sélectionnée pour l'admin
             adminTeamSelect.value = selectedTeam;
-            // Set the currently selected team for viewer
+            // Définit l'équipe actuellement sélectionnée pour le spectateur
             viewerTeamSelect.value = viewerSelectedTeam;
         }
 
-        // Mise à jour de l'interface
+        // Initialise les données par défaut dans Firebase si elles n'existent pas
+        function initializeDefaultData() {
+            if (!database || !isConnected) return; // Exécute seulement si connecté à Firebase
+
+            // Vérifie et pousse les joueurs par défaut
+            database.ref('players').once('value', (snapshot) => {
+                if (!snapshot.exists() || Object.keys(snapshot.val()).length === 0) {
+                    database.ref('players').set(defaultPlayers)
+                        .then(() => console.log("Joueurs par défaut ajoutés à Firebase."))
+                        .catch(e => console.error("Erreur lors de l'ajout des joueurs par défaut:", e));
+                }
+            });
+
+            // Vérifie et initialise les résultats du repêchage
+            database.ref('draftResults').once('value', (snapshot) => {
+                if (!snapshot.exists() || Object.keys(snapshot.val()).length === 0) {
+                    database.ref('draftResults').set([])
+                        .then(() => console.log("Résultats du repêchage initialisés dans Firebase."))
+                        .catch(e => console.error("Erreur lors de l'initialisation des résultats:", e));
+                }
+            });
+
+            // Vérifie et initialise l'ordre de repêchage
+            database.ref('draftOrder').once('value', (snapshot) => {
+                if (!snapshot.exists() || Object.keys(snapshot.val()).length === 0) {
+                    database.ref('draftOrder').set(generateDefaultDraftOrder())
+                        .then(() => console.log("Ordre de repêchage initialisé dans Firebase."))
+                        .catch(e => console.error("Erreur lors de l'initialisation de l'ordre:", e));
+                }
+            });
+
+            // Vérifie et initialise l'état du jeu
+            database.ref('gameState').once('value', (snapshot) => {
+                if (!snapshot.exists()) {
+                    database.ref('gameState').set({ currentRound: 1, currentPick: 1, draftFinished: false })
+                        .then(() => console.log("État du jeu initialisé dans Firebase."))
+                        .catch(e => console.error("Erreur lors de l'initialisation de l'état du jeu:", e));
+                }
+            });
+
+            // Vérifie et initialise le timer
+            database.ref('timer').once('value', (snapshot) => {
+                if (!snapshot.exists()) {
+                    database.ref('timer').set({ duration: 300, remaining: 300, active: false })
+                        .then(() => console.log("État du timer initialisé dans Firebase."))
+                        .catch(e => console.error("Erreur lors de l'initialisation du timer:", e));
+                }
+            });
+        }
+
+        // Met à jour l'interface utilisateur en fonction des données actuelles
         function updateInterface() {
             renderPlayers();
             renderDraftResults();
             renderDraftSummary();
-            renderDraftOrder(); // Call the new render function for draft order
+            renderDraftOrder(); // Affiche l'ordre de repêchage
             updateRoundAndPickDisplay();
-            updateTeamSelection(); // Update current team in admin selector
-            updateAvailablePlayersCount();
+            updateTeamSelection(); // Met à jour l'équipe sélectionnée dans le sélecteur admin
+            updateAvailablePlayersCount(); // Met à jour le nombre de joueurs disponibles
         }
 
+        // Met à jour le compteur de joueurs disponibles
         function updateAvailablePlayersCount() {
             const availableCount = players.filter(p => !p.drafted).length;
             document.getElementById('availableCount').textContent = availableCount;
             document.getElementById('playerCount').textContent = `Joueurs disponibles: ${availableCount} / ${players.length}`;
         }
 
+        // Met à jour l'affichage de la ronde et du choix actuels
         function updateRoundAndPickDisplay() {
             const currentPickData = draftOrder.find(item => item.pick === currentPick && item.round === currentRound);
             const currentTeam = currentPickData ? currentPickData.team : 'Fin du repêchage';
@@ -1161,16 +1145,18 @@
             document.getElementById('currentPickerText').textContent = `Ronde ${currentRound} - Choix #${currentPick}`;
             document.getElementById('currentTeamText').textContent = `Équipe: ${currentTeam}`;
 
-            // Highlight the current picker in the draft order table
+            // Surligne le choix actuel dans le tableau de l'ordre de repêchage
             const allPickItems = document.querySelectorAll('#draftOrderTable .pick-item');
             allPickItems.forEach(item => item.classList.remove('selected'));
             const currentPickElement = document.querySelector(`#pick-${currentRound}-${currentPick}`);
             if (currentPickElement) {
                 currentPickElement.classList.add('selected');
+                // Fait défiler l'élément actuel dans la vue
                 currentPickElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }
         }
 
+        // Met à jour la sélection de l'équipe pour l'administrateur
         function updateTeamSelection() {
             const currentPickData = draftOrder.find(item => item.pick === currentPick && item.round === currentRound);
             if (isAdmin && currentPickData && document.getElementById('teamSelect')) {
@@ -1179,116 +1165,146 @@
             }
         }
 
-        // Importer les joueurs depuis un fichier CSV
+        // Importe les joueurs depuis un fichier CSV
         function importPlayers(event) {
-            if (!isAdmin) return;
+            if (!isAdmin) {
+                alert("Vous n'êtes pas autorisé à importer des joueurs.");
+                return;
+            }
             const file = event.target.files[0];
-            if (file) {
-                PapaParse.parse(file, {
-                    header: true,
-                    skipEmptyLines: true,
-                    complete: (results) => {
-                        const importedPlayers = results.data.map((row, index) => ({
-                            id: index + 1,
-                            nom: row.Nom || 'Inconnu',
-                            position: row.Position || 'ATT',
-                            age: parseInt(row.Age) || 18,
-                            poids: parseInt(row.Poids) || 180,
-                            taille: row.Taille || "6'0\"",
-                            potentiel: parseFloat(row.Potentiel) || 7.0,
-                            style: row.Style || 'Polyvalent',
-                            precision: row.Precision || 'C',
-                            commentaire: row.Commentaire || '',
-                            drafted: false
-                        }));
-                        players = importedPlayers;
+            if (!file) {
+                return;
+            }
+
+            PapaParse.parse(file, {
+                header: true,
+                dynamicTyping: true, // Tente de convertir les nombres
+                skipEmptyLines: true,
+                complete: function(results) {
+                    const importedPlayers = results.data.map((row, index) => ({
+                        id: index + 1, // Assigne un ID unique
+                        nom: row.Nom || 'Inconnu',
+                        position: row.Position || 'ATT',
+                        age: parseInt(row.Age) || 18,
+                        poids: parseInt(row.Poids) || 180,
+                        taille: row.Taille || "6'0\"",
+                        potentiel: parseFloat(row.Potentiel) || 7.0,
+                        style: row.Style || 'Polyvalent',
+                        precision: row.Precision || 'C',
+                        commentaire: row.Commentaire || '',
+                        drafted: false // Les nouveaux joueurs ne sont pas repêchés
+                    }));
+                    players = importedPlayers;
+                    if (useLocalStorage) {
+                        localStorage.setItem('players', JSON.stringify(players));
+                        updateInterface();
+                    } else {
+                        // Utilise .set() pour remplacer toutes les données existantes
+                        database.ref('players').set(players)
+                            .then(() => alert('Joueurs importés avec succès !'))
+                            .catch(error => alert('Erreur lors de l\'importation des joueurs: ' + error.message));
+                    }
+                },
+                error: function(err) {
+                    alert('Erreur lors de l\'importation du fichier CSV des joueurs: ' + err.message);
+                    console.error('Erreur de parse CSV:', err);
+                }
+            });
+        }
+
+        // Importe l'ordre de repêchage depuis un fichier CSV
+        function importDraftOrder(event) {
+            if (!isAdmin) {
+                alert("Vous n'êtes pas autorisé à importer l'ordre de repêchage.");
+                return;
+            }
+            const file = event.target.files[0];
+            if (!file) {
+                return;
+            }
+
+            PapaParse.parse(file, {
+                header: true,
+                dynamicTyping: true,
+                skipEmptyLines: true,
+                complete: function(results) {
+                    // Vérifie la présence des colonnes nécessaires
+                    if (!results.data[0] || !results.data[0].Ronde || !results.data[0].Choix || !results.data[0].Équipe) {
+                        alert("Le fichier CSV de l'ordre de repêchage doit contenir les colonnes: Ronde, Choix, Équipe.");
+                        return;
+                    }
+                    const importedOrder = results.data.map(row => ({
+                        round: parseInt(row.Ronde),
+                        pick: parseInt(row.Choix),
+                        team: row.Équipe
+                    })).filter(item => !isNaN(item.round) && !isNaN(item.pick) && item.team);
+
+                    if (importedOrder.length > 0) {
+                        draftOrder = importedOrder.sort((a, b) => a.pick - b.pick); // Trie par numéro de choix
                         if (useLocalStorage) {
-                            localStorage.setItem('players', JSON.stringify(players));
+                            localStorage.setItem('draftOrder', JSON.stringify(draftOrder));
                             updateInterface();
                         } else {
-                            database.ref('players').set(players)
-                                .then(() => alert('Joueurs importés avec succès !'))
-                                .catch(error => alert('Erreur lors de l\'importation des joueurs: ' + error.message));
+                            database.ref('draftOrder').set(draftOrder)
+                                .then(() => alert('Ordre de repêchage importé avec succès !'))
+                                .catch(error => alert('Erreur lors de l\'importation de l\'ordre: ' + error.message));
                         }
-                    },
-                    error: (error) => {
-                        alert('Erreur lors de la lecture du fichier CSV des joueurs: ' + error.message);
+                        // Réinitialise la ronde et le choix actuels si un nouvel ordre est importé
+                        currentRound = 1;
+                        currentPick = 1;
+                        updateGameState();
+                    } else {
+                        alert('Le fichier CSV de l\'ordre de repêchage est vide ou mal formaté.');
                     }
-                });
-            }
+                },
+                error: function(err) {
+                    alert('Erreur lors de l\'importation du fichier CSV de l\'ordre de repêchage: ' + err.message);
+                    console.error('Erreur de parse CSV:', err);
+                }
+            });
         }
 
-        // Importer l'ordre de repêchage depuis un fichier CSV
-        function importDraftOrder(event) {
-            if (!isAdmin) return;
-            const file = event.target.files[0];
-            if (file) {
-                PapaParse.parse(file, {
-                    header: true,
-                    skipEmptyLines: true,
-                    complete: (results) => {
-                        const importedOrder = results.data.map((row) => ({
-                            round: parseInt(row.Ronde),
-                            pick: parseInt(row.Choix),
-                            team: row.Équipe
-                        })).filter(item => !isNaN(item.round) && !isNaN(item.pick) && item.team);
-
-                        if (importedOrder.length > 0) {
-                            draftOrder = importedOrder.sort((a, b) => a.pick - b.pick); // Sort by pick number
-                            if (useLocalStorage) {
-                                localStorage.setItem('draftOrder', JSON.stringify(draftOrder));
-                                updateInterface();
-                            } else {
-                                database.ref('draftOrder').set(draftOrder)
-                                    .then(() => alert('Ordre de repêchage importé avec succès !'))
-                                    .catch(error => alert('Erreur lors de l\'importation de l\'ordre: ' + error.message));
-                            }
-                            // Reset current pick and round if new order is imported
-                            currentRound = 1;
-                            currentPick = 1;
-                            updateGameState();
-                        } else {
-                            alert('Le fichier CSV de l\'ordre de repêchage est vide ou mal formaté.');
-                        }
-                    },
-                    error: (error) => {
-                        alert('Erreur lors de la lecture du fichier CSV de l\'ordre de repêchage: ' + error.message);
-                    }
-                });
-            }
-        }
-
-        // Réinitialiser le repêchage
+        // Réinitialise tout le repêchage
         function resetDraft() {
-            if (!isAdmin) return;
-            if (confirm('Êtes-vous sûr de vouloir réinitialiser le repêchage ? Tous les joueurs seront disponibles et les résultats effacés.')) {
-                players.forEach(p => p.drafted = false);
+            if (!isAdmin) {
+                alert("Vous n'êtes pas autorisé à réinitialiser le repêchage.");
+                return;
+            }
+            if (confirm("Êtes-vous sûr de vouloir réinitialiser TOUT le repêchage (joueurs repêchés, résultats, état) ? Cette action est irréversible.")) {
+                players.forEach(p => p.drafted = false); // Marque tous les joueurs comme non repêchés
                 draftResults = [];
                 currentRound = 1;
                 currentPick = 1;
-                timerRemaining = timerDuration;
+                selectedPlayer = null;
                 timerActive = false;
+                timerRemaining = timerDuration;
+
                 if (timerInterval) {
                     clearInterval(timerInterval);
                     timerInterval = null;
                 }
-                if (useLocalStorage) {
+
+                if (database) {
+                    const updates = {};
+                    updates['/players'] = players; // Réinitialise le statut de repêchage de tous les joueurs
+                    updates['/draftResults'] = [];
+                    updates['/gameState'] = { currentRound: 1, currentPick: 1, draftFinished: false };
+                    updates['/timer'] = { duration: timerDuration, remaining: timerDuration, active: false };
+                    database.ref().update(updates)
+                        .then(() => console.log("Repêchage réinitialisé dans Firebase."))
+                        .catch(e => console.error("Erreur lors de la réinitialisation du repêchage dans Firebase:", e));
+                } else if (useLocalStorage) {
                     localStorage.setItem('players', JSON.stringify(players));
-                    localStorage.setItem('draftResults', JSON.stringify(draftResults));
-                    localStorage.setItem('gameState', JSON.stringify({ currentRound, currentPick }));
-                    localStorage.setItem('timer', JSON.stringify({ duration: timerDuration, remaining: timerRemaining, active: timerActive }));
-                    updateInterface();
-                } else {
-                    database.ref('players').set(players);
-                    database.ref('draftResults').set(draftResults);
-                    database.ref('gameState').set({ currentRound, currentPick });
-                    database.ref('timer').set({ duration: timerDuration, remaining: timerRemaining, active: timerActive });
+                    localStorage.setItem('draftResults', JSON.stringify([]));
+                    localStorage.setItem('gameState', JSON.stringify({ currentRound: 1, currentPick: 1, draftFinished: false }));
+                    localStorage.setItem('timer', JSON.stringify({ duration: timerDuration, remaining: timerDuration, active: false }));
                 }
-                alert('Repêchage réinitialisé.');
+                updateInterface();
+                alert("Le repêchage a été réinitialisé.");
             }
         }
 
-        // Fonction pour mettre à jour l'état du jeu dans Firebase/LocalStorage
+        // Met à jour l'état du jeu (ronde et choix actuels) dans Firebase/LocalStorage
         function updateGameState() {
             const gameState = { currentRound, currentPick };
             if (useLocalStorage) {
@@ -1299,7 +1315,7 @@
             }
         }
 
-        // Fonction pour mettre à jour les joueurs dans Firebase/LocalStorage
+        // Met à jour la liste des joueurs dans Firebase/LocalStorage
         function updatePlayers() {
             if (useLocalStorage) {
                 localStorage.setItem('players', JSON.stringify(players));
@@ -1309,7 +1325,7 @@
             }
         }
 
-        // Fonction pour mettre à jour les résultats dans Firebase/LocalStorage
+        // Met à jour les résultats du repêchage dans Firebase/LocalStorage
         function updateDraftResults() {
             if (useLocalStorage) {
                 localStorage.setItem('draftResults', JSON.stringify(draftResults));
@@ -1319,7 +1335,7 @@
             }
         }
 
-        // Fonction pour mettre à jour l'ordre de repêchage dans Firebase/LocalStorage
+        // Met à jour l'ordre de repêchage dans Firebase/LocalStorage
         function updateDraftOrder() {
             if (useLocalStorage) {
                 localStorage.setItem('draftOrder', JSON.stringify(draftOrder));
@@ -1329,31 +1345,31 @@
             }
         }
 
-        // Fonction pour mettre à jour l'état du timer dans Firebase/LocalStorage
+        // Met à jour l'état du timer dans Firebase/LocalStorage
         function updateTimerState() {
             const timerState = { duration: timerDuration, remaining: timerRemaining, active: timerActive };
             if (useLocalStorage) {
                 localStorage.setItem('timer', JSON.stringify(timerState));
-                updateTimerDisplay(); // Local update
+                updateTimerDisplay(); // Mise à jour locale
             } else if (database) {
                 database.ref('timer').set(timerState).catch(error => console.error("Erreur mise à jour timer:", error));
             }
         }
 
-        // Afficher les joueurs
+        // Affiche la liste des joueurs disponibles et gère les filtres
         function renderPlayers() {
             const playersList = document.getElementById('playersList');
-            playersList.innerHTML = '';
-            document.getElementById('playersLoading').classList.add('hidden');
+            playersList.innerHTML = ''; // Vide la liste
+            document.getElementById('playersLoading').classList.add('hidden'); // Cache l'indicateur de chargement
 
             const searchTerm = document.getElementById('searchInput').value.toLowerCase();
             const positionFilter = document.getElementById('positionFilter').value;
 
-            // Collect all unique positions for the filter
+            // Collecte toutes les positions uniques pour le filtre
             const allPositions = new Set();
             players.forEach(p => allPositions.add(p.position));
             const positionFilterSelect = document.getElementById('positionFilter');
-            // Clear existing options, but keep "Toutes les positions"
+            // Vide les options existantes, mais garde "Toutes les positions"
             const currentOptions = Array.from(positionFilterSelect.options).map(o => o.value);
             Array.from(allPositions).sort().forEach(pos => {
                 if (!currentOptions.includes(pos)) {
@@ -1363,15 +1379,16 @@
                     positionFilterSelect.appendChild(option);
                 }
             });
-            positionFilterSelect.value = positionFilter; // Re-select the current filter
+            positionFilterSelect.value = positionFilter; // Re-sélectionne le filtre actuel
 
+            // Filtre les joueurs
             const availablePlayers = players.filter(player => {
                 const matchesSearch = player.nom.toLowerCase().includes(searchTerm) ||
                                       player.position.toLowerCase().includes(searchTerm) ||
-                                      player.commentaire.toLowerCase().includes(searchTerm) ||
-                                      player.style.toLowerCase().includes(searchTerm);
+                                      (player.commentaire && player.commentaire.toLowerCase().includes(searchTerm)) ||
+                                      (player.style && player.style.toLowerCase().includes(searchTerm));
                 const matchesPosition = positionFilter === '' || player.position === positionFilter;
-                return !player.drafted && matchesSearch && matchesPosition;
+                return !player.drafted && matchesSearch && matchesPosition; // N'affiche que les joueurs non repêchés
             });
 
             if (availablePlayers.length === 0) {
@@ -1379,22 +1396,14 @@
                 return;
             }
 
+            // Affiche les joueurs filtrés
             availablePlayers.forEach(player => {
                 const playerDiv = document.createElement('div');
                 playerDiv.classList.add('player-item');
-                playerDiv.dataset.id = player.id;
+                playerDiv.dataset.id = player.id; // Stocke l'ID du joueur
                 
-                let draftedByText = '';
-                if (player.drafted) {
-                    playerDiv.classList.add('drafted');
-                    const result = draftResults.find(r => r.playerId === player.id);
-                    if (result) {
-                        draftedByText = `<span style="color: #ccc; margin-left: 10px;">(Repêché par ${result.team})</span>`;
-                    }
-                }
-
                 playerDiv.innerHTML = `
-                    <div class="player-name">${player.nom} ${draftedByText}
+                    <div class="player-name">${player.nom}
                         <span class="player-stats">
                             <span class="player-potential">Pot: ${player.potentiel}</span>
                             <span class="player-precision">Préc: ${player.precision}</span>
@@ -1404,33 +1413,33 @@
                         ${player.position} | ${player.age} ans | ${player.taille} | ${player.poids} lbs
                     </div>
                 `;
-                playerDiv.onclick = () => selectPlayer(player);
+                playerDiv.onclick = () => selectPlayer(player); // Gère la sélection
                 playersList.appendChild(playerDiv);
             });
 
-            // Re-select the previously selected player if it's still available and not drafted
+            // Re-sélectionne le joueur précédemment sélectionné s'il est toujours disponible
             if (selectedPlayer && !selectedPlayer.drafted) {
                 const el = document.querySelector(`.player-item[data-id="${selectedPlayer.id}"]`);
                 if (el) el.classList.add('selected');
             } else {
-                selectedPlayer = null; // Clear selection if player is drafted or not found
+                selectedPlayer = null; // Efface la sélection si le joueur est repêché ou introuvable
                 document.getElementById('playerDetails').innerHTML = '<div class="loading"><p>Sélectionnez un joueur pour voir ses détails</p></div>';
             }
         }
 
-        // Sélectionner un joueur
+        // Sélectionne un joueur et affiche ses détails
         function selectPlayer(player) {
             if (player.drafted) {
                 alert('Ce joueur a déjà été repêché.');
                 return;
             }
-            // Remove 'selected' class from previously selected player
+            // Supprime la classe 'selected' du joueur précédemment sélectionné
             const currentlySelected = document.querySelector('.player-item.selected');
             if (currentlySelected) {
                 currentlySelected.classList.remove('selected');
             }
 
-            // Add 'selected' class to the new player
+            // Ajoute la classe 'selected' au nouveau joueur
             const newSelected = document.querySelector(`.player-item[data-id="${player.id}"]`);
             if (newSelected) {
                 newSelected.classList.add('selected');
@@ -1440,7 +1449,7 @@
             displayPlayerDetails(player);
         }
 
-        // Afficher les détails du joueur
+        // Affiche les détails d'un joueur dans le panneau dédié
         function displayPlayerDetails(player) {
             const playerDetailsDiv = document.getElementById('playerDetails');
             playerDetailsDiv.innerHTML = `
@@ -1456,7 +1465,7 @@
                 <br>
                 ${isAdmin ? `<button onclick="draftPlayer()" class="btn btn-success" style="width: 100%;">🚀 Repêcher ce joueur</button>` : ''}
             `;
-            // If in viewer mode, and the viewer has selected a team, and this player is drafted by their team, show it
+            // Affiche des informations supplémentaires si le joueur est repêché (pour les spectateurs)
             if (!isAdmin && viewerSelectedTeam) {
                 const draftedResult = draftResults.find(r => r.playerId === player.id && r.team === viewerSelectedTeam);
                 if (draftedResult) {
@@ -1469,7 +1478,7 @@
             }
         }
 
-        // Repêcher un joueur
+        // Gère l'action de repêcher un joueur
         function draftPlayer() {
             if (!isAdmin) {
                 alert('Vous devez être administrateur pour repêcher un joueur.');
@@ -1490,14 +1499,15 @@
                 return;
             }
 
-            // Ensure the selected team matches the team in the draft order, or allow override if admin wants to manually pick
+            // Vérifie si l'équipe sélectionnée manuellement correspond à l'équipe du tour
             if (document.getElementById('teamSelect').value !== currentPickData.team) {
                 if (!confirm(`Attention: L'équipe actuelle qui repêche est ${currentPickData.team}, mais vous avez sélectionné ${document.getElementById('teamSelect').value}. Voulez-vous continuer avec l'équipe sélectionnée manuellement ?`)) {
                     return;
                 }
             }
-            selectedTeam = document.getElementById('teamSelect').value; // Use the value from the select input
+            selectedTeam = document.getElementById('teamSelect').value; // Utilise la valeur du sélecteur
 
+            // Crée le nouvel objet de résultat de repêchage
             const newResult = {
                 pickNumber: currentPick,
                 round: currentRound,
@@ -1508,39 +1518,42 @@
                 timestamp: new Date().toISOString()
             };
 
-            // Marquer le joueur comme repêché
+            // Marque le joueur comme repêché dans le tableau local 'players'
             const playerIndex = players.findIndex(p => p.id === selectedPlayer.id);
             if (playerIndex !== -1) {
                 players[playerIndex].drafted = true;
             }
 
-            draftResults.push(newResult);
-            draftResults.sort((a, b) => a.pickNumber - b.pickNumber); // Keep results sorted by pick number
+            draftResults.push(newResult); // Ajoute le résultat aux résultats locaux
+            draftResults.sort((a, b) => a.pickNumber - b.pickNumber); // Trie les résultats par numéro de choix
 
-            // Passer au prochain choix
-            moveToNextPick();
+            moveToNextPick(); // Passe au prochain choix
 
-            // Réinitialiser la sélection de joueur
+            // Réinitialise la sélection de joueur dans l'interface
             selectedPlayer = null;
             document.getElementById('playerDetails').innerHTML = '<div class="loading"><p>Sélectionnez un joueur pour voir ses détails</p></div>';
 
-            // Mettre à jour les données dans Firebase/LocalStorage
+            // Met à jour les données dans Firebase/LocalStorage
             updatePlayers();
             updateDraftResults();
             updateGameState();
-            stopTimer(); // Stop timer after a pick
+            resetTimer(); // Réinitialise le timer après un choix
         }
 
-        // Passer au choix suivant
+        // Passe au choix suivant dans l'ordre de repêchage
         function skipPick() {
-            if (!isAdmin) return;
+            if (!isAdmin) {
+                alert("Vous n'êtes pas autorisé à passer un tour.");
+                return;
+            }
             if (confirm('Êtes-vous sûr de vouloir passer le tour actuel ?')) {
                 moveToNextPick();
-                stopTimer(); // Stop timer after skipping
+                resetTimer(); // Réinitialise le timer après avoir passé
                 updateGameState();
             }
         }
 
+        // Logique pour avancer au prochain choix
         function moveToNextPick() {
             const nextPickIndex = draftOrder.findIndex(item => item.pick === currentPick && item.round === currentRound) + 1;
             if (nextPickIndex < draftOrder.length) {
@@ -1548,13 +1561,13 @@
                 currentRound = draftOrder[nextPickIndex].round;
             } else {
                 alert('Tous les choix du repêchage ont été effectués !');
-                currentPick = draftOrder.length + 1; // Indicate end of draft
-                currentRound = Math.ceil((currentPick - 1) / defaultTeams.length);
+                currentPick = draftOrder.length + 1; // Indique la fin du repêchage
+                currentRound = Math.ceil((currentPick - 1) / defaultTeams.length); // Calcule la dernière ronde
             }
-            updateGameState();
+            updateGameState(); // Met à jour l'état du jeu dans la DB/LocalStorage
         }
 
-        // Afficher les résultats du repêchage
+        // Affiche les résultats du repêchage
         function renderDraftResults() {
             const draftResultsDiv = document.getElementById('draftResults');
             draftResultsDiv.innerHTML = '';
@@ -1564,9 +1577,10 @@
                 return;
             }
 
+            // Filtre les résultats pour le mode spectateur
             const filteredResults = draftResults.filter(result => {
-                if (isAdmin) return true; // Admins see all results
-                return result.team === viewerSelectedTeam; // Viewers see only their team's picks
+                if (isAdmin) return true; // Les admins voient tous les résultats
+                return result.team === viewerSelectedTeam; // Les spectateurs voient seulement les choix de leur équipe
             });
 
             if (filteredResults.length === 0 && !isAdmin && viewerSelectedTeam) {
@@ -1574,13 +1588,13 @@
                  return;
             }
 
-
+            // Affiche les résultats filtrés
             filteredResults.forEach(result => {
                 const resultDiv = document.createElement('div');
                 resultDiv.classList.add('draft-result');
                 resultDiv.innerHTML = `
                     <div>
-                        <strong>#${result.pickNumber} (${result.round})</strong> - ${result.team}
+                        <strong>#${result.pickNumber} (Ronde ${result.round})</strong> - ${result.team}
                     </div>
                     <div>
                         ${result.playerName} (${result.playerPosition})
@@ -1590,11 +1604,11 @@
             });
         }
 
-        // Afficher le tableau récapitulatif
+        // Affiche le tableau récapitulatif des choix par équipe
         function renderDraftSummary() {
             const summaryTableDiv = document.getElementById('summaryTable');
             
-            // Calculate picks per team
+            // Calcule les choix par équipe
             const picksByTeam = {};
             defaultTeams.forEach(team => picksByTeam[team] = { totalPicks: 0, draftedPlayers: [] });
 
@@ -1636,10 +1650,10 @@
             summaryTableDiv.innerHTML = tableHTML;
         }
 
-        // Render Draft Order (New Function)
+        // Affiche l'ordre de repêchage et gère le glisser-déposer (Drag & Drop)
         function renderDraftOrder() {
             const draftOrderTableDiv = document.getElementById('draftOrderTable');
-            draftOrderTableDiv.innerHTML = '';
+            draftOrderTableDiv.innerHTML = ''; // Vide le contenu
 
             if (draftOrder.length === 0) {
                 draftOrderTableDiv.innerHTML = `
@@ -1652,15 +1666,16 @@
                 return;
             }
 
+            // Crée un élément pour chaque choix dans l'ordre de repêchage
             draftOrder.forEach((item, index) => {
                 const pickDiv = document.createElement('div');
                 pickDiv.classList.add('pick-item');
-                pickDiv.id = `pick-${item.round}-${item.pick}`;
-                pickDiv.dataset.index = index; // Store index for drag and drop
-                pickDiv.dataset.pickNumber = item.pick; // Store pick number for easy access
+                pickDiv.id = `pick-${item.round}-${item.pick}`; // ID unique pour chaque choix
+                pickDiv.dataset.index = index; // Stocke l'index pour le glisser-déposer
+                pickDiv.dataset.pickNumber = item.pick; // Stocke le numéro de choix
 
                 if (isAdmin) {
-                    pickDiv.setAttribute('draggable', true); // Make draggable for admin
+                    pickDiv.setAttribute('draggable', true); // Rend l'élément draggable pour l'admin
                     pickDiv.addEventListener('dragstart', handleDragStart);
                     pickDiv.addEventListener('dragover', handleDragOver);
                     pickDiv.addEventListener('drop', handleDrop);
@@ -1674,26 +1689,27 @@
                 `;
                 draftOrderTableDiv.appendChild(pickDiv);
             });
-            updateRoundAndPickDisplay(); // Ensure current pick is highlighted after rendering
+            updateRoundAndPickDisplay(); // Surligne le choix actuel après le rendu
         }
         
-        // --- Drag and Drop Functions for Admin Draft Order ---
+        // --- Fonctions de glisser-déposer (Drag and Drop) pour l'ordre de repêchage (Admin) ---
         function handleDragStart(e) {
             if (!isAdmin) return;
             draggingPick = e.target;
             e.dataTransfer.effectAllowed = 'move';
-            e.dataTransfer.setData('text/plain', e.target.dataset.index); // Store the index of the dragged item
+            e.dataTransfer.setData('text/plain', e.target.dataset.index); // Stocke l'index de l'élément glissé
             e.target.classList.add('dragging');
         }
 
         function handleDragOver(e) {
-            e.preventDefault(); // Necessary to allow a drop
+            e.preventDefault(); // Nécessaire pour autoriser le drop
             if (!isAdmin) return;
             e.dataTransfer.dropEffect = 'move';
             const target = e.target.closest('.pick-item');
             if (target && target !== draggingPick) {
                 const rect = target.getBoundingClientRect();
                 const offsetY = e.clientY - rect.top;
+                // Insère l'élément glissé avant ou après la cible en fonction de la position de la souris
                 if (offsetY < rect.height / 2) {
                     target.parentNode.insertBefore(draggingPick, target);
                 } else {
@@ -1711,17 +1727,17 @@
             if (droppedOnTarget && draggingPick && draggingPick !== droppedOnTarget) {
                 const newIndex = Array.from(droppedOnTarget.parentNode.children).indexOf(draggingPick);
                 
-                // Perform the swap in the actual draftOrder array
+                // Effectue l'échange dans le tableau draftOrder
                 const [movedItem] = draftOrder.splice(originalIndex, 1);
                 draftOrder.splice(newIndex, 0, movedItem);
 
-                // Reassign pick numbers sequentially after the swap
+                // Réassigne les numéros de choix séquentiellement après l'échange
                 draftOrder.forEach((item, idx) => {
-                    item.pick = idx + 1; // Update pick number based on new position
-                    item.round = Math.ceil((idx + 1) / defaultTeams.length); // Recalculate round
+                    item.pick = idx + 1; // Met à jour le numéro de choix en fonction de la nouvelle position
+                    item.round = Math.ceil((idx + 1) / defaultTeams.length); // Recalcule la ronde
                 });
 
-                updateDraftOrder(); // Save updated order to Firebase/LocalStorage
+                updateDraftOrder(); // Sauvegarde l'ordre mis à jour dans Firebase/LocalStorage
             }
         }
 
@@ -1731,7 +1747,7 @@
             draggingPick = null;
         }
         
-        // Function to manually swap two picks by their pick number (for admin controls)
+        // Fonction pour échanger manuellement deux choix par leur numéro (pour les contrôles admin)
         function swapDraftPicks() {
             if (!isAdmin) return;
             const pick1 = parseInt(document.getElementById('swapPick1').value);
@@ -1750,62 +1766,82 @@
             const index1 = pick1 - 1;
             const index2 = pick2 - 1;
 
-            // Swap the items in the draftOrder array
+            // Échange les éléments dans le tableau draftOrder
             [draftOrder[index1], draftOrder[index2]] = [draftOrder[index2], draftOrder[index1]];
 
-            // Update the pick numbers and rounds after swapping
+            // Met à jour les numéros de choix et les rondes après l'échange
             draftOrder.forEach((item, idx) => {
                 item.pick = idx + 1;
                 item.round = Math.ceil((idx + 1) / defaultTeams.length);
             });
 
-            updateDraftOrder(); // Save updated order to Firebase/LocalStorage
+            updateDraftOrder(); // Sauvegarde l'ordre mis à jour dans Firebase/LocalStorage
             alert(`Choix #${pick1} et #${pick2} ont été échangés avec succès.`);
             document.getElementById('swapPick1').value = '';
             document.getElementById('swapPick2').value = '';
         }
 
+        // Réinitialise l'ordre de repêchage à la configuration par défaut
         function resetDraftOrder() {
             if (!isAdmin) return;
             if (confirm('Êtes-vous sûr de vouloir réinitialiser l\'ordre de repêchage à la configuration par défaut ?')) {
                 draftOrder = generateDefaultDraftOrder();
-                updateDraftOrder(); // Save to Firebase/LocalStorage
+                updateDraftOrder(); // Sauvegarde dans Firebase/LocalStorage
                 currentRound = 1;
                 currentPick = 1;
                 updateGameState();
                 alert('L\'ordre de repêchage a été réinitialisé.');
             }
         }
-        // --- End Drag and Drop Functions ---
+        // --- Fin des fonctions de glisser-déposer ---
 
-        // Export data to CSV
+        // Exporte les résultats du repêchage au format CSV
         function exportToCSV() {
-            if (!isAdmin) return;
-            let csvContent = "Choix,Ronde,Équipe,Joueur,Position,Timestamp\n";
-            draftResults.forEach(result => {
-                csvContent += `${result.pickNumber},${result.round},"${result.team}","${result.playerName}","${result.playerPosition}",${result.timestamp}\n`;
+            if (!isAdmin) {
+                alert("Vous n'êtes pas autorisé à exporter des données.");
+                return;
+            }
+            if (draftResults.length === 0) {
+                alert("Aucun joueur repêché à exporter.");
+                return;
+            }
+
+            const header = ["Choix", "Ronde", "Équipe", "Joueur", "Position", "Timestamp"];
+            const data = draftResults.map(r => [
+                r.pickNumber,
+                r.round,
+                `"${r.team}"`, // Met entre guillemets pour gérer les virgules dans les noms d'équipe
+                `"${r.playerName}"`, // Met entre guillemets
+                `"${r.playerPosition}"`, // Met entre guillemets
+                r.timestamp
+            ]);
+
+            let csvContent = header.join(",") + "\n";
+            data.forEach(row => {
+                csvContent += row.join(",") + "\n";
             });
 
             const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
             const link = document.createElement('a');
-            if (link.download !== undefined) {
+            if (link.download !== undefined) { // Vérifie la prise en charge de l'attribut download
                 const url = URL.createObjectURL(blob);
                 link.setAttribute('href', url);
                 link.setAttribute('download', 'resultats_repechage_LHSS_2020.csv');
-                link.style.visibility = 'hidden';
+                link.style.visibility = 'hidden'; // Cache le lien
                 document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
+                link.click(); // Déclenche le téléchargement
+                document.body.removeChild(link); // Supprime le lien
             }
         }
 
-        // Timer functions
+        // Fonctions du timer
         function formatTime(seconds) {
             const minutes = Math.floor(seconds / 60);
             const secs = seconds % 60;
             return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
         }
 
+        // Met à jour l'affichage du timer
         function updateTimerDisplay() {
             const displayElement = isAdmin ? document.getElementById('timerDisplay') : document.getElementById('timerDisplayViewer');
             const statusElement = document.getElementById('timerStatusViewer');
@@ -1822,8 +1858,9 @@
             }
         }
 
+        // Démarre le compte à rebours local
         function startLocalTimer() {
-            if (timerInterval) clearInterval(timerInterval);
+            if (timerInterval) clearInterval(timerInterval); // Empêche les timers multiples
             timerInterval = setInterval(() => {
                 if (timerRemaining > 0) {
                     timerRemaining--;
@@ -1831,18 +1868,22 @@
                 } else {
                     clearInterval(timerInterval);
                     timerInterval = null;
+                    // Actions à la fin du timer (ex: passer le tour, alerter)
                     if (isAdmin) {
-                        // Admin-specific action on timer expiry, e.g., auto-skip
-                        // alert('Temps écoulé ! Passez au joueur suivant.');
-                        // skipPick(); // Auto-skip is an option, but might be too aggressive
+                        // alert('Temps écoulé !'); // L'admin peut être alerté
+                        // Optionnel: skipPick(); // Passer automatiquement le tour
                     }
-                    updateTimerState(); // Ensure state is synced after expiry
+                    updateTimerState(); // S'assure que l'état est synchronisé après expiration
                 }
             }, 1000);
         }
 
+        // Définit la durée du timer
         function setTimer() {
-            if (!isAdmin) return;
+            if (!isAdmin) {
+                alert("Vous n'êtes pas autorisé à définir le timer.");
+                return;
+            }
             const minutes = parseInt(document.getElementById('timerMinutes').value);
             if (isNaN(minutes) || minutes < 1) {
                 alert('Veuillez entrer un nombre de minutes valide (min 1).');
@@ -1850,24 +1891,33 @@
             }
             timerDuration = minutes * 60;
             timerRemaining = timerDuration;
-            updateTimerState(); // Sync duration and remaining
+            timerActive = false; // Met en pause après la définition
+            updateTimerState(); // Synchronise la durée et le temps restant
             updateTimerDisplay();
         }
 
+        // Démarre le timer
         function startTimer() {
-            if (!isAdmin) return;
+            if (!isAdmin) {
+                alert("Vous n'êtes pas autorisé à démarrer le timer.");
+                return;
+            }
             if (!timerActive) {
                 timerActive = true;
-                updateTimerState(); // Sync active state
-                startLocalTimer(); // Start the local countdown
+                updateTimerState(); // Synchronise l'état actif
+                startLocalTimer(); // Démarre le compte à rebours local
             }
         }
 
+        // Met le timer en pause
         function pauseTimer() {
-            if (!isAdmin) return;
+            if (!isAdmin) {
+                alert("Vous n'êtes pas autorisé à mettre en pause le timer.");
+                return;
+            }
             if (timerActive) {
                 timerActive = false;
-                updateTimerState(); // Sync active state
+                updateTimerState(); // Synchronise l'état inactif
                 if (timerInterval) {
                     clearInterval(timerInterval);
                     timerInterval = null;
@@ -1875,11 +1925,15 @@
             }
         }
 
+        // Réinitialise le timer à sa durée initiale
         function resetTimer() {
-            if (!isAdmin) return;
+            if (!isAdmin) {
+                alert("Vous n'êtes pas autorisé à réinitialiser le timer.");
+                return;
+            }
             timerRemaining = timerDuration;
-            timerActive = false;
-            updateTimerState(); // Sync all states
+            timerActive = false; // Met en pause lors de la réinitialisation
+            updateTimerState(); // Synchronise tous les états
             if (timerInterval) {
                 clearInterval(timerInterval);
                 timerInterval = null;
@@ -1887,9 +1941,9 @@
             updateTimerDisplay();
         }
 
-        // Initialisation de l'application
+        // Initialisation de l'application au chargement de la page
         document.addEventListener('DOMContentLoaded', () => {
-            // Check for saved Firebase config or local mode preference
+            // Vérifie la configuration Firebase sauvegardée ou la préférence de mode local
             const savedConfig = localStorage.getItem('firebase-config');
             const savedLocalMode = localStorage.getItem('use-local-mode');
 
@@ -1901,19 +1955,19 @@
                     database = firebase.database();
                     setupRealtimeListeners();
                     updateConnectionStatus('connected', 'Connecté à Firebase');
-                    showLoginForm(); // Show login form after initializing
+                    showLoginForm(); // Affiche le formulaire de connexion après l'initialisation
                 } catch (error) {
-                    console.error('Failed to parse saved Firebase config:', error);
+                    console.error('Échec de l\'analyse de la configuration Firebase sauvegardée:', error);
                     updateConnectionStatus('disconnected', 'Erreur config Firebase');
-                    showFirebaseConfig(); // Show setup if config is bad
+                    showFirebaseConfig(); // Affiche la configuration si elle est invalide
                 }
             } else if (savedLocalMode === 'true') {
                 useLocalMode();
             } else {
-                showFirebaseConfig(); // No config or local mode, show setup
+                showFirebaseConfig(); // Aucune configuration ou mode local, affiche la configuration
             }
 
-            // Set up search and filter listeners
+            // Configure les écouteurs pour la recherche et les filtres
             document.getElementById('searchInput').addEventListener('input', updateInterface);
             document.getElementById('positionFilter').addEventListener('change', updateInterface);
             document.getElementById('teamSelect').addEventListener('change', (e) => {
@@ -1922,13 +1976,14 @@
                 }
             });
             document.getElementById('viewerTeamSelect').addEventListener('change', (e) => {
-                if (!isAdmin) { // Only update if in viewer mode
+                if (!isAdmin) { // Met à jour uniquement en mode spectateur
                     viewerSelectedTeam = e.target.value;
                     document.getElementById('viewerTeamDisplay').textContent = `Visualisation pour : ${viewerSelectedTeam}`;
-                    updateInterface(); // Re-render to reflect new team filter
+                    updateInterface(); // Re-rend l'interface pour refléter le nouveau filtre d'équipe
                 }
             });
         });
     </script>
 </body>
 </html>
+
